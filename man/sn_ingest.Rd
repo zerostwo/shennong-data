@@ -17,7 +17,8 @@ sn_ingest(
   is_default = FALSE,
   schema_version = "1.0",
   register = TRUE,
-  server_url = sn_server_url()
+  server_url = sn_server_url(),
+  admin_token = sn_admin_token()
 )
 }
 \arguments{
@@ -36,6 +37,7 @@ sn_ingest(
 \item{schema_version}{Dataset schema version.}
 \item{register}{Whether to register the dataset version immediately.}
 \item{server_url}{Shennong Data Server URL.}
+\item{admin_token}{Admin API key. Defaults to \code{sn_admin_token()}.}
 }
 \description{
 Creates a \code{POST /v1/ingest} request. The current server deployment supports

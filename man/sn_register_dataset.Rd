@@ -13,7 +13,8 @@ sn_register_dataset(
   status = "active",
   is_default = FALSE,
   schema_version = "1.0",
-  server_url = sn_server_url()
+  server_url = sn_server_url(),
+  admin_token = sn_admin_token()
 )
 }
 \arguments{
@@ -28,6 +29,7 @@ sn_register_dataset(
 \item{is_default}{Whether this version should be the default version.}
 \item{schema_version}{Dataset schema version.}
 \item{server_url}{Shennong Data Server URL.}
+\item{admin_token}{Admin API key. Defaults to \code{sn_admin_token()}.}
 }
 \description{
 Registers a dataset version through \code{POST /v1/datasets}. Large data files

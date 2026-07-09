@@ -8,7 +8,8 @@ sn_register_dataset <- function(dataset,
                                 status = "active",
                                 is_default = FALSE,
                                 schema_version = "1.0",
-                                server_url = sn_server_url()) {
+                                server_url = sn_server_url(),
+                                admin_token = sn_admin_token()) {
   payload <- .sn_dataset_payload(
     dataset = dataset,
     version = version,
@@ -21,7 +22,12 @@ sn_register_dataset <- function(dataset,
     is_default = is_default,
     schema_version = schema_version
   )
-  .sn_request_json("POST", .sn_url(server_url, "/v1/datasets"), body = payload)
+  .sn_request_json(
+    "POST",
+    .sn_url(server_url, "/v1/datasets"),
+    body = payload,
+    headers = .sn_admin_headers(admin_token)
+  )
 }
 
 sn_ingest <- function(dataset,
@@ -38,7 +44,8 @@ sn_ingest <- function(dataset,
                       is_default = FALSE,
                       schema_version = "1.0",
                       register = TRUE,
-                      server_url = sn_server_url()) {
+                      server_url = sn_server_url(),
+                      admin_token = sn_admin_token()) {
   data_model <- match.arg(data_model)
   body <- list(
     dataset = .sn_scalar_chr(dataset, "dataset"),
@@ -56,7 +63,12 @@ sn_ingest <- function(dataset,
     schema_version = schema_version,
     register = isTRUE(register)
   )
-  .sn_request_json("POST", .sn_url(server_url, "/v1/ingest"), body = body)
+  .sn_request_json(
+    "POST",
+    .sn_url(server_url, "/v1/ingest"),
+    body = body,
+    headers = .sn_admin_headers(admin_token)
+  )
 }
 
 sn_upload_dataset <- function(file,
@@ -73,7 +85,8 @@ sn_upload_dataset <- function(file,
                               is_default = FALSE,
                               schema_version = "1.0",
                               register = TRUE,
-                              server_url = sn_server_url()) {
+                              server_url = sn_server_url(),
+                              admin_token = sn_admin_token()) {
   data_model <- match.arg(data_model)
   if (!is.character(file) || length(file) != 1L || !file.exists(file)) {
     stop("`file` must be an existing local file path.", call. = FALSE)
@@ -94,7 +107,11 @@ sn_upload_dataset <- function(file,
     schema_version = schema_version,
     register = .sn_form_bool(register)
   ))
-  .sn_request_multipart(.sn_url(server_url, "/v1/ingest/upload"), form = form)
+  .sn_request_multipart(
+    .sn_url(server_url, "/v1/ingest/upload"),
+    form = form,
+    headers = .sn_admin_headers(admin_token)
+  )
 }
 
 .sn_dataset_payload <- function(dataset,

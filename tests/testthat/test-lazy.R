@@ -34,3 +34,15 @@ test_that("dataset registration payload matches server schema", {
   expect_true(payload$is_default)
   expect_equal(payload$metadata$title, "Toil")
 })
+
+test_that("admin token is stored and sent as an admin header", {
+  old <- getOption("ShennongData.admin_token")
+  on.exit(options(ShennongData.admin_token = old), add = TRUE)
+  options(ShennongData.admin_token = NULL)
+  sn_admin_token("secret-token")
+  expect_equal(sn_admin_token(), "secret-token")
+  expect_equal(
+    ShennongData:::.sn_admin_headers(),
+    c("X-Shennong-Admin-Key" = "secret-token")
+  )
+})

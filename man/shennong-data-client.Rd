@@ -6,6 +6,7 @@
 \alias{sn_list_datasets}
 \alias{sn_dataset_schema}
 \alias{sn_server_url}
+\alias{sn_admin_token}
 \title{Lazy Shennong Data Server client}
 \description{
 Create and materialize lazy queries against Shennong Data Server. The default
@@ -31,6 +32,8 @@ sn_list_datasets(server_url = sn_server_url())
 sn_dataset_schema(dataset, version = NULL, server_url = sn_server_url())
 
 sn_server_url(url = NULL)
+
+sn_admin_token(token = NULL)
 }
 \arguments{
 \item{dataset}{Dataset identifier, for example \code{"toil"}.}
@@ -57,6 +60,9 @@ sn_server_url(url = NULL)
 \item{url}{Optional URL to store in \code{options("ShennongData.server_url")}.
 The legacy \code{options("shennong.data.server_url")} value is still read as a
 fallback.}
+\item{token}{Optional admin token to store in
+\code{options("ShennongData.admin_token")}. If unset, the client reads
+\code{Sys.getenv("SHENNONG_ADMIN_API_KEY")}.}
 }
 \value{
 \code{sn_load_data()} returns a lazy Shennong data object by default.
