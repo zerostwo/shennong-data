@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - Placeholder for upcoming changes.
 
+## [0.1.2] - 2026-07-09
+
+### Added
+
+- Add compatibility entrypoints used by shennong-db clients: `sn_set_api_url`,
+  `sn_get_api_url`, `sn_set_api_token`, `sn_get_api_token`.
+- Add compatibility helpers `sn_query_spec`, `sn_query`, and `sn_fetch_genes`.
+- Add `sn_plot_survival` and legacy bearer-token handling on data handles.
+
+### Changed
+
+- Preserve the legacy query token field (`api_url`, `token`) in `sn_load_data()`
+  and emit `Authorization` when requesting `/v1/query`.
+
 ## [0.1.1] - 2026-07-09
 
 ### Added
@@ -40,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Initial package scaffold (`ShennongData`) with lazy data loading, querying and
   plotting helpers for Shennong Data Server.
 
-[Unreleased]: https://github.com/zerostwo/shennong-data/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/zerostwo/shennong-data/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/zerostwo/shennong-data/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/zerostwo/shennong-data/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zerostwo/shennong-data/releases/tag/v0.1.0

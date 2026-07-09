@@ -5,11 +5,16 @@ sn_load_data <- function(dataset = "toil",
                          layer = NULL,
                          measure = "expression",
                          server_url = sn_server_url(),
+                         token = sn_get_api_token(),
+                         api_url = NULL,
                          lazy = TRUE,
                          limit = 1000L,
                          ...) {
   if (!is.character(dataset) || length(dataset) != 1L || !nzchar(dataset)) {
     stop("`dataset` must be a non-empty character scalar.", call. = FALSE)
+  }
+  if (!is.null(api_url)) {
+    server_url <- api_url
   }
   data_model <- data_model %||% .sn_default_data_model(dataset)
   layer <- layer %||% .sn_default_layer(data_model)
@@ -25,14 +30,22 @@ sn_load_data <- function(dataset = "toil",
       filters = list(),
       fields = character(),
       features = character(),
+      token = token,
       limit = as.integer(limit)
     ),
-    class = "shennong_remote_tbl"
+    class = c("shennong_remote_tbl", "shennong_lazy")
   )
   if (isTRUE(lazy)) {
     return(x)
   }
   sn_collect(x, ...)
+}
+
+check_shennong_remote_tbl <- function(x) {
+  if (!inherits(x, "shennong_remote_tbl") && !inherits(x, "shennong_lazy")) {
+    stop("`x` must be a Shennong lazy data object.", call. = FALSE)
+  }
+  invisible(x)
 }
 
 .sn_default_data_model <- function(dataset) {
@@ -58,6 +71,9 @@ sn_load_data <- function(dataset = "toil",
 filter.shennong_remote_tbl <- function(.data, ..., .preserve = FALSE) {
   del(.preserve)
   quos <- rlang::enquos(...)
+  if (!length(quos)) {
+    return(.data)
+  }
   parsed <- lapply(quos, .sn_filter_quo)
   .data$filters <- .sn_merge_filters(c(list(.data$filters), parsed))
   .data
@@ -84,10 +100,11 @@ sn_collect <- function(x,
                        features = NULL,
                        limit = NULL,
                        max_pages = Inf) {
-  if (!inherits(x, "shennong_remote_tbl")) {
-    stop("`x` must be a Shennong lazy data object.", call. = FALSE)
+  check_shennong_remote_tbl(x)
+  if (is.null(features)) {
+    features <- x$features
   }
-  features <- features %||% x$features
+  features <- as.character(features)
   if (length(features) == 0L && x$data_model %in% c("bulk", "single_cell", "spatial")) {
     stop("Expression queries require `features`, for example `features = \"YTHDF2\"`.", call. = FALSE)
   }
@@ -98,8 +115,18 @@ sn_collect <- function(x,
   out <- list()
   repeat {
     current_limit <- if (is.infinite(remaining)) page_limit else min(page_limit, remaining)
-    spec <- .sn_query_spec(x, features = features, limit = current_limit, cursor = cursor)
-    response <- .sn_request_json("POST", .sn_url(x$server_url, "/v1/query"), body = spec)
+    spec <- .sn_query_spec(
+      x,
+      features = features,
+      limit = current_limit,
+      cursor = cursor
+    )
+    response <- .sn_request_json(
+      "POST",
+      .sn_url(x$server_url, "/v1/query"),
+      body = spec,
+      headers = .sn_auth_headers(x$token)
+    )
     out[[length(out) + 1L]] <- tibble::as_tibble(response$data)
     pages <- pages + 1L
     rows <- nrow(out[[length(out)]])
@@ -126,6 +153,7 @@ sn_query <- function(dataset,
                      layer = "log2_tpm",
                      measure = "expression",
                      server_url = sn_server_url(),
+                     token = sn_get_api_token(),
                      limit = 1000L) {
   x <- sn_load_data(
     dataset = dataset,
@@ -135,10 +163,48 @@ sn_query <- function(dataset,
     layer = layer,
     measure = measure,
     server_url = server_url,
-    limit = limit
+    token = token
   )
   x$filters <- filters
   sn_collect(x, features = features, limit = limit)
+}
+
+sn_query_spec <- function(
+  x,
+  features = NULL,
+  fields = NULL,
+  limit = NULL,
+  cursor = NULL,
+  format = "json",
+  shape = "tidy",
+  aggregation = NULL,
+  include_metadata = TRUE,
+  include_feature_metadata = FALSE,
+  measure = NULL,
+  layer = NULL
+) {
+  check_shennong_remote_tbl(x)
+  .sn_query_spec(
+    x = x,
+    features = features %||% x$features,
+    fields = fields,
+    limit = limit %||% x$limit %||% 1000L,
+    cursor = cursor,
+    format = format,
+    shape = shape,
+    aggregation = aggregation,
+    include_metadata = include_metadata,
+    include_feature_metadata = include_feature_metadata,
+    measure = measure %||% x$measure,
+    layer = layer %||% x$layer
+  )
+}
+
+sn_fetch_genes <- function(x, genes, ...) {
+  if (!is.character(genes) || !length(genes) || any(!nzchar(genes))) {
+    stop("`genes` must be a non-empty character vector.", call. = FALSE)
+  }
+  sn_collect(x, features = genes, ...)
 }
 
 print.shennong_remote_tbl <- function(x, ...) {
@@ -154,7 +220,20 @@ print.shennong_remote_tbl <- function(x, ...) {
   invisible(x)
 }
 
-.sn_query_spec <- function(x, features, limit, cursor = NULL) {
+.sn_query_spec <- function(
+  x,
+  features,
+  limit,
+  cursor = NULL,
+  fields = NULL,
+  format = "json",
+  shape = "tidy",
+  aggregation = NULL,
+  include_metadata = TRUE,
+  include_feature_metadata = FALSE,
+  measure = NULL,
+  layer = NULL
+) {
   list(
     dataset = x$dataset,
     version = x$version,
@@ -163,12 +242,18 @@ print.shennong_remote_tbl <- function(x, ...) {
     select = list(
       features = as.list(as.character(features)),
       observations = .sn_json_object(x$filters),
-      fields = as.list(as.character(x$fields))
+      fields = as.list(as.character(fields %||% x$fields))
     ),
-    layer = x$layer,
-    measure = x$measure,
-    "return" = list(format = "json", shape = "tidy"),
-    options = list(limit = as.integer(limit), cursor = cursor)
+    layer = layer %||% x$layer,
+    measure = measure %||% x$measure,
+    `return` = list(format = format, shape = shape),
+    options = list(
+      limit = as.integer(limit),
+      cursor = cursor,
+      include_metadata = include_metadata,
+      include_feature_metadata = include_feature_metadata,
+      aggregation = aggregation
+    )
   )
 }
 

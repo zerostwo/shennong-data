@@ -21,4 +21,28 @@ sn_plot_box <- function(data,
   p + ggplot2::labs(x = x, y = y, title = title %||% gene) + ggplot2::theme_classic()
 }
 
+sn_plot_survival <- function(
+  .data,
+  time = "month",
+  survival = "survival",
+  group = "group",
+  limit = 10000,
+  ...
+) {
+  df <- sn_collect(.data, fields = c(time, survival, group), limit = limit, ...)
+  require_columns(df, c(time, survival, group))
+  ggplot2::ggplot(df, ggplot2::aes(x = .data[[time]], y = .data[[survival]], color = .data[[group]])) +
+    ggplot2::geom_step() +
+    ggplot2::labs(x = time, y = survival) +
+    ggplot2::theme_minimal(base_size = 12)
+}
+
+require_columns <- function(data, columns) {
+  missing <- setdiff(columns, names(data))
+  if (length(missing)) {
+    stop("Missing required column(s): ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  invisible(data)
+}
+
 del <- function(...) invisible(NULL)

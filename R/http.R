@@ -3,15 +3,60 @@ sn_server_url <- function(url = NULL) {
     normalized <- .sn_normalize_url(url)
     options(
       ShennongData.server_url = normalized,
-      shennong.data.server_url = normalized
+      shennong.data.server_url = normalized,
+      shennong.api_url = normalized
     )
   }
-  .sn_normalize_url(
-    getOption(
-      "ShennongData.server_url",
-      getOption("shennong.data.server_url", "http://127.0.0.1:18000")
-    )
+  env_url <- Sys.getenv("SHENNONG_API_URL", unset = "")
+  configured <- getOption(
+    "ShennongData.server_url",
+    getOption("shennong.data.server_url", getOption("shennong.api_url"))
   )
+  if (is.character(configured) && length(configured) == 1L && nzchar(configured)) {
+    return(.sn_normalize_url(configured))
+  }
+  if (nzchar(env_url)) {
+    return(.sn_normalize_url(env_url))
+  }
+  "http://127.0.0.1:18000"
+}
+
+sn_set_api_url <- function(url) {
+  if (!is.character(url) || length(url) != 1L || !nzchar(url)) {
+    stop("`url` must be a non-empty character scalar.", call. = FALSE)
+  }
+  old <- getOption("shennong.api_url")
+  options(
+    ShennongData.server_url = .sn_normalize_url(url),
+    shennong.data.server_url = .sn_normalize_url(url),
+    shennong.api_url = .sn_normalize_url(url)
+  )
+  invisible(old)
+}
+
+sn_get_api_url <- function() {
+  sn_server_url()
+}
+
+sn_set_api_token <- function(token = NULL) {
+  if (!is.null(token) && (!is.character(token) || length(token) != 1L || !nzchar(token))) {
+    stop("`token` must be NULL or a single non-empty string.", call. = FALSE)
+  }
+  old <- getOption("shennong.api_token")
+  options(shennong.api_token = token)
+  invisible(old)
+}
+
+sn_get_api_token <- function() {
+  token <- getOption("shennong.api_token")
+  if (is.character(token) && length(token) == 1L && nzchar(token)) {
+    return(token)
+  }
+  env_token <- Sys.getenv("SHENNONG_API_TOKEN", unset = "")
+  if (nzchar(env_token)) {
+    return(env_token)
+  }
+  NULL
 }
 
 sn_admin_token <- function(token = NULL) {
@@ -79,6 +124,13 @@ sn_admin_token <- function(token = NULL) {
 
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
+}
+
+.sn_auth_headers <- function(token = NULL) {
+  if (!is.character(token) || length(token) != 1L || !nzchar(token)) {
+    return(NULL)
+  }
+  c(Authorization = paste("Bearer", token))
 }
 
 .sn_admin_headers <- function(admin_token = sn_admin_token()) {
