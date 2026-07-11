@@ -86,6 +86,16 @@ test_that("advertised batch query capability removes feature fan-out", {
   expect_equal(sum(grepl("/api/v1/query/batch", seen)), 1L)
 })
 
+test_that("dplyr collect dispatches to the lazy handle", {
+  resource <- .phase_fixture("agent-resource-toil.json")
+  query <- .phase_fixture("query-expression.json")
+  testthat::local_mocked_bindings(.sn_perform_json = function(req, retries, throttle) if (grepl("/agent/resources/", req$url)) resource else query, .package = "ShennongData")
+  con <- ShennongData:::.sn_new_connection("http://example.test", "collect", tempdir(), 60, 3L, 4, NULL)
+  x <- sn_load_data("toil", connection = con)
+  out <- dplyr::collect(x, features = "ENSG00000198492.14", resolve = "never")
+  expect_s3_class(out, "shennong_result")
+})
+
 test_that("count-based converters reject transformed Toil measurements", {
   testthat::local_mocked_bindings(.sn_perform_json = function(...) .phase_fixture("agent-resource-toil.json"), .package = "ShennongData")
   con <- ShennongData:::.sn_new_connection("http://example.test", "phase3", tempdir(), 60, 3L, 4, NULL)

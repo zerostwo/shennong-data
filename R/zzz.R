@@ -6,6 +6,8 @@
     registerS3method("select", "ShennongData::ShennongData", function(.data, ...) sn_select(.data, ...), envir = ns)
     registerS3method("rename", "ShennongData::ShennongData", function(.data, ...) sn_rename(.data, ...), envir = ns)
     registerS3method("slice_head", "ShennongData::ShennongData", function(.data, ..., n = 6L) sn_slice_head(.data, n), envir = ns)
+    registerS3method("collect", "ShennongData::ShennongData", collect.ShennongData, envir = ns)
+    registerS3method("collect", "shennong_result", collect.shennong_result, envir = ns)
   }
   registerS3method("collect", "ShennongData::ShennongData", collect.ShennongData, envir = asNamespace(pkgname))
   registerS3method("print", "shennong_result", print.shennong_result, envir = asNamespace("base"))
