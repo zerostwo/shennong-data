@@ -15,8 +15,9 @@ URL: https://github.com/zerostwo/shennong-data
 BugReports: https://github.com/zerostwo/shennong-data/issues
 Encoding: UTF-8
 Depends:
-    R (>= 4.1.0)
+    R (>= 4.3.0)
 Imports:
+    S7,
     curl,
     dplyr,
     ggplot2,
