@@ -20,6 +20,7 @@ Imports:
     curl,
     dplyr,
     ggplot2,
+    httr2,
     jsonlite,
     rlang,
     tibble
