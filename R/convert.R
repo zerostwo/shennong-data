@@ -143,7 +143,11 @@ sn_export <- function(x, format, path, source = c("auto", "query", "artifact"), 
                       verify = TRUE, runtime = c("auto", "r", "micromamba", "conda"), ...) {
   source <- match.arg(source); runtime <- match.arg(runtime); format <- tolower(format)
   if (file.exists(path) && !isTRUE(overwrite)) stop("Destination already exists: ", path, call. = FALSE)
-  if (format %in% c("h5ad", "h5mu")) stop("H5AD/H5MU export requires zellkonverter/anndata runtime; use `sn_runtime_check()` before exporting.", call. = FALSE)
+  if (format == "h5ad" && S7::S7_inherits(x, ShennongData)) {
+    artifact <- tryCatch(sn_artifact(x, format = "h5ad"), error = function(e) NULL)
+    if (!is.null(artifact)) return(sn_download_artifact(x, artifact, path, verify = verify, overwrite = overwrite, ...))
+  }
+  if (format %in% c("h5ad", "h5mu")) stop("H5AD/H5MU export requires a matching Artifact or an explicit zellkonverter/anndata runtime; use `sn_runtime_check()` before exporting.", call. = FALSE)
   result <- if (inherits(x, "shennong_result")) x else sn_fetch_data(x, source = source, shape = "long", ...)
   if (format %in% c("csv", "tsv", "txt")) {
     utils::write.table(as.data.frame(result), path, sep = if (format == "csv") "," else "\t", row.names = FALSE, col.names = TRUE, quote = format == "csv")
