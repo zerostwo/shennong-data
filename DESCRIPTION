@@ -1,7 +1,7 @@
 Package: ShennongData
 Type: Package
 Title: Lazy R Client for Shennong Data Server
-Version: 0.1.2
+Version: 0.2.0
 Authors@R: c(
     person("Songqi", "Duan", , "duan@songqi.org", role = c("aut", "cre"))
   )
@@ -18,14 +18,9 @@ Depends:
     R (>= 4.3.0)
 Imports:
     S7,
-    curl,
-    dplyr,
-    ggplot2,
-    httr2,
-    jsonlite,
-    rlang,
-    tibble
+    httr2
 Suggests:
+    jsonlite,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)

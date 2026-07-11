@@ -35,7 +35,7 @@
   if (exists(key, envir = .sn_token_registry, inherits = FALSE)) {
     return(get(key, envir = .sn_token_registry, inherits = FALSE))
   }
-  sn_get_api_token()
+  sn_session_token()
 }
 
 .sn_negotiate <- function(connection) {

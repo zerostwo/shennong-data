@@ -83,7 +83,7 @@ sn_load_data <- function(resource, version = NULL,
                          view = c("auto", "observations", "assay", "resource"),
                          connection = sn_connection(), refresh = FALSE,
                          validate = c("metadata", "capabilities", "none"), ...) {
-  del(refresh, ...)
+  invisible(refresh)
   .sn_check_connection(connection)
   if (!is.character(resource) || length(resource) != 1L || !nzchar(resource)) stop("`resource` must be a non-empty character scalar.", call. = FALSE)
   view <- match.arg(view)

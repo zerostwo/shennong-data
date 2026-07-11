@@ -19,7 +19,7 @@ S7::method(dimnames, ShennongData) <- function(x) {
   )
 }
 S7::method(print, ShennongData) <- function(x, ...) {
-  del(...)
+  invisible(list(...))
   resource <- x@resource
   cat("<ShennongData>\nResource: ", resource$id, "\nTitle:    ", resource$title, "\n", sep = "")
   cat("Kind:     ", resource$kind, "   Status: ", resource$status, if (!is.null(resource$version)) paste0("   Version: ", resource$version), "\n", sep = "")

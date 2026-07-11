@@ -21,41 +21,9 @@ sn_server_url <- function(url = NULL) {
   "http://127.0.0.1:8000"
 }
 
-sn_set_api_url <- function(url) {
-  if (!is.character(url) || length(url) != 1L || !nzchar(url)) {
-    stop("`url` must be a non-empty character scalar.", call. = FALSE)
-  }
-  old <- getOption("shennong.api_url")
-  sn_server_url(url)
-  invisible(old)
-}
-
-sn_get_api_url <- function() sn_server_url()
-
-sn_set_api_token <- function(token = NULL) {
-  if (!is.null(token) && (!is.character(token) || length(token) != 1L || !nzchar(token))) {
-    stop("`token` must be NULL or a single non-empty string.", call. = FALSE)
-  }
-  old <- getOption("shennong.api_token")
-  options(shennong.api_token = token)
-  invisible(old)
-}
-
-sn_get_api_token <- function() {
-  token <- getOption("shennong.api_token")
-  if (is.character(token) && length(token) == 1L && nzchar(token)) return(token)
+sn_session_token <- function() {
   token <- Sys.getenv("SHENNONG_API_TOKEN", unset = "")
   if (nzchar(token)) token else NULL
-}
-
-sn_admin_token <- function(token = NULL) {
-  if (!is.null(token)) {
-    if (!is.character(token) || length(token) != 1L || !nzchar(token)) {
-      stop("`token` must be a non-empty character scalar.", call. = FALSE)
-    }
-    options(ShennongData.admin_token = token)
-  }
-  getOption("ShennongData.admin_token", Sys.getenv("SHENNONG_ADMIN_API_KEY", unset = ""))
 }
 
 .sn_endpoints <- list(
@@ -94,7 +62,7 @@ sn_admin_token <- function(token = NULL) {
   if (exists(".sn_resolve_token", mode = "function", inherits = TRUE)) {
     return(.sn_resolve_token(connection))
   }
-  connection$token %||% sn_get_api_token()
+  connection$token %||% sn_session_token()
 }
 
 sn_request <- function(connection, path, method = "GET", body = NULL,
@@ -110,18 +78,13 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   token <- switch(
     auth,
     user = .sn_connection_token(connection),
-    admin = sn_admin_token(),
+    admin = NULL,
     none = NULL
   )
   if (identical(auth, "user") && !is.null(token)) {
     req <- httr2::req_headers(req, Authorization = paste("Bearer", token), .redact = "Authorization")
   }
-  if (identical(auth, "admin")) {
-    if (!is.character(token) || length(token) != 1L || !nzchar(token)) {
-      stop("An admin token is required for this operation.", call. = FALSE)
-    }
-    req <- httr2::req_headers(req, `X-Shennong-Admin-Key` = token, .redact = "X-Shennong-Admin-Key")
-  }
+  if (identical(auth, "admin")) stop("Admin requests are not part of ShennongData.", call. = FALSE)
   req
 }
 
@@ -141,14 +104,6 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   .sn_perform_json(req)
 }
 
-.sn_request_multipart <- function(url, form, headers = NULL) {
-  req <- httr2::request(url)
-  req <- httr2::req_headers(req, Accept = "application/json")
-  if (!is.null(headers)) req <- do.call(httr2::req_headers, c(list(req), as.list(headers)))
-  req <- do.call(httr2::req_body_multipart, c(list(req), form))
-  .sn_perform_json(req)
-}
-
 .sn_parse_json_response <- function(response) {
   if (httr2::resp_status(response) >= 400L) {
     body <- tryCatch(httr2::resp_body_json(response, simplifyVector = FALSE), error = function(e) NULL)
@@ -159,15 +114,3 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
-
-.sn_auth_headers <- function(token = NULL) {
-  if (!is.character(token) || length(token) != 1L || !nzchar(token)) return(NULL)
-  c(Authorization = paste("Bearer", token))
-}
-
-.sn_admin_headers <- function(admin_token = sn_admin_token()) {
-  if (!is.character(admin_token) || length(admin_token) != 1L || !nzchar(admin_token)) {
-    stop("An admin token is required for this operation. Set it with `sn_admin_token()`.", call. = FALSE)
-  }
-  c("X-Shennong-Admin-Key" = admin_token)
-}
