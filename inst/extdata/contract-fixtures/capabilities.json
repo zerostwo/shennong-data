@@ -2,8 +2,8 @@
   "data": {
     "api_version": "v1",
     "batch_features": true,
-    "metadata_views": false,
-    "axes": false,
+    "metadata_views": true,
+    "axes": true,
     "cursor": true,
     "arrow": false,
     "structured_errors": true,

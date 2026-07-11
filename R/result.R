@@ -263,7 +263,30 @@ sn_stream_data <- function(x, features = NULL, fields = NULL, context = NULL,
   if (sparse && requireNamespace("Matrix", quietly = TRUE)) Matrix::Matrix(mat, sparse = TRUE) else mat
 }
 
-collect.ShennongData <- function(x, ..., shape = "long", allow_large = FALSE) sn_fetch_data(x, shape = shape, allow_large = allow_large, ...)
+sn_collect_metadata <- function(x, fields = NULL, limit = NULL, cursor = NULL) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  if (!identical(x@view, "observations")) stop("Metadata collection requires the observations view.", call. = FALSE)
+  fields <- fields %||% x@query$field_selection %||% character()
+  req <- sn_request(x@connection, .sn_endpoint("metadata", utils::URLencode(x@resource$id, reserved = TRUE)), method = "GET")
+  req <- httr2::req_url_query(req, fields = if (length(fields)) paste(fields, collapse = ",") else NULL,
+                              limit = limit %||% x@query$limit, cursor = cursor)
+  response <- .sn_perform_json(req, retries = x@connection$retries, throttle = x@connection$throttle)
+  payload <- response$data %||% response
+  rows <- payload$data %||% list()
+  if (is.data.frame(rows)) data <- rows else if (length(rows)) {
+    columns <- unique(unlist(lapply(rows, names), use.names = FALSE))
+    data <- as.data.frame(stats::setNames(lapply(columns, function(column) vapply(rows, function(row) row[[column]] %||% NA_character_, character(1))), columns), stringsAsFactors = FALSE)
+  } else data <- data.frame()
+  plan <- .sn_empty_query(x); plan$field_selection <- fields; plan$shape <- "metadata"; plan$limit <- limit %||% x@query$limit
+  meta <- payload$meta %||% list()
+  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), source = "metadata_view", fields = fields, meta = meta, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), partial = !is.null(meta$next_cursor))
+  .sn_as_result(data, x, plan, provenance, partial = !is.null(meta$next_cursor))
+}
+
+collect.ShennongData <- function(x, ..., shape = "long", allow_large = FALSE) {
+  if (identical(x@view, "observations") && isTRUE(x@connection$capabilities$metadata_views) && is.null(list(...)$features)) return(sn_collect_metadata(x, ...))
+  sn_fetch_data(x, shape = shape, allow_large = allow_large, ...)
+}
 collect.shennong_result <- function(x, ...) x
 collect <- function(x, ...) UseMethod("collect")
 

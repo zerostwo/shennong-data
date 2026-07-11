@@ -33,6 +33,7 @@ sn_session_token <- function() {
   agent_manifest = "/.well-known/shennong-agent.json",
   agent_resource = "/api/v1/agent/resources/%s",
   axis = "/api/v1/agent/resources/%s/axes/%s",
+  metadata = "/api/v1/agent/resources/%s/metadata",
   artifact_download = "/api/v1/resources/%s/artifacts/%s/download",
   query = "/api/v1/query",
   query_batch = "/api/v1/query/batch",

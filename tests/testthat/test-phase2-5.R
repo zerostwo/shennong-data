@@ -65,6 +65,8 @@ test_that("server capability negotiation exposes streaming and structured errors
   con$capabilities <- .phase_fixture("capabilities.json")$data
   expect_true(sn_server_features(con)$structured_errors)
   expect_true(sn_server_features(con)$artifact_streaming)
+  expect_true(sn_server_features(con)$metadata_views)
+  expect_true(sn_server_features(con)$axes)
   expect_true(sn_server_features(con)$batch_features)
 })
 
@@ -102,6 +104,24 @@ test_that("structured API errors retain code and details", {
   expect_s3_class(error, "shennong_api_error")
   expect_equal(error$code, "query_invalid")
   expect_match(conditionMessage(error), "unsupported context")
+})
+
+test_that("metadata and axis views are explicit bounded endpoints", {
+  resource <- .phase_fixture("agent-resource-toil.json")
+  testthat::local_mocked_bindings(
+    .sn_perform_json = function(req, retries, throttle) {
+      if (grepl("/agent/resources/toil$", req$url)) return(resource)
+      if (grepl("/axes/observation", req$url)) return(list(data = list(axis = "observation", ids = c("S1", "S2"), ids_available = TRUE)))
+      list(data = list(data = list(list(sample_id = "S1", disease = "A")), meta = list(n_rows = 1)))
+    }, .package = "ShennongData"
+  )
+  con <- ShennongData:::.sn_new_connection("http://example.test", "metadata", tempdir(), 60, 3L, 4, NULL)
+  con$capabilities <- list(metadata_views = TRUE, axes = TRUE)
+  x <- sn_load_data("toil", connection = con)
+  expect_equal(sn_observation_ids(x), c("S1", "S2"))
+  out <- sn_collect_metadata(x, fields = "sample_id")
+  expect_s3_class(out, "shennong_result")
+  expect_equal(out$sample_id, "S1")
 })
 
 test_that("count-based converters reject transformed Toil measurements", {
