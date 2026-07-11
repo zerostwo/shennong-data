@@ -11,7 +11,8 @@ Description: Provides tidyverse-style lazy access to Shennong Data Server
     datasets. Objects returned by sn_load_data() keep only API query state until
     collect(), plotting, or another materializing operation requests data.
 License: MIT + file LICENSE
-URL: https://github.com/zerostwo/shennong-data
+URL: https://zerostwo.github.io/shennong-data/,
+    https://github.com/zerostwo/shennong-data
 BugReports: https://github.com/zerostwo/shennong-data/issues
 Encoding: UTF-8
 Depends:
@@ -20,18 +21,25 @@ Imports:
     S7,
     httr2
 Suggests:
+    CellChat,
+    DESeq2,
     digest,
     dplyr,
     edgeR,
     jsonlite,
     Matrix,
+    MultiAssayExperiment,
     monocle3,
     S4Vectors,
+    SeuratObject,
     SummarizedExperiment,
     SingleCellExperiment,
     survival,
     tibble,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/Needs/website: pkgdown
+Remotes:
+    jinworks/CellChat
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

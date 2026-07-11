@@ -1,0 +1,5 @@
+url: https://zerostwo.github.io/shennong-data/
+destination: .pkgdown
+
+template:
+  bootstrap: 5
