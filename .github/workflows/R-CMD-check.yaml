@@ -31,7 +31,7 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::testthat, any::jsonlite, any::dplyr, any::digest
+          extra-packages: any::rcmdcheck, any::testthat, any::jsonlite, any::dplyr, any::digest, bioc::SingleCellExperiment
           needs: check
           dependencies: '"hard"'
       - uses: r-lib/actions/check-r-package@v2

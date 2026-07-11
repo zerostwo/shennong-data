@@ -18,7 +18,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr, any::xml2, any::testthat, any::jsonlite, any::dplyr, any::digest
+          extra-packages: any::covr, any::xml2, any::testthat, any::jsonlite, any::dplyr, any::digest, bioc::SingleCellExperiment
           needs: coverage
           dependencies: '"hard"'
       - name: Test coverage
