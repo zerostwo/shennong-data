@@ -96,6 +96,14 @@ test_that("dplyr collect dispatches to the lazy handle", {
   expect_s3_class(out, "shennong_result")
 })
 
+test_that("structured API errors retain code and details", {
+  response <- httr2::response(status_code = 422, headers = list(`content-type` = "application/json"), body = charToRaw('{"error":"query_invalid","code":"query_invalid","message":"unsupported context"}'))
+  error <- tryCatch(ShennongData:::.sn_parse_json_response(response), error = identity)
+  expect_s3_class(error, "shennong_api_error")
+  expect_equal(error$code, "query_invalid")
+  expect_match(conditionMessage(error), "unsupported context")
+})
+
 test_that("count-based converters reject transformed Toil measurements", {
   testthat::local_mocked_bindings(.sn_perform_json = function(...) .phase_fixture("agent-resource-toil.json"), .package = "ShennongData")
   con <- ShennongData:::.sn_new_connection("http://example.test", "phase3", tempdir(), 60, 3L, 4, NULL)
