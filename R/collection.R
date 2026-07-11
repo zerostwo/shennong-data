@@ -63,7 +63,14 @@ sn_as_collection <- function(x, target = "MultiAssayExperiment", allow_large = F
   if (!requireNamespace("MultiAssayExperiment", quietly = TRUE)) stop("Package `MultiAssayExperiment` is required.", call. = FALSE)
   invisible(allow_large)
   if (is.null(x$sample_map)) stop("MultiAssayExperiment conversion requires an explicit sample map; use `sn_set_sample_map()` first.", call. = FALSE)
-  stop("MultiAssayExperiment conversion needs materialized assays and is not implemented for an unbounded collection.", call. = FALSE)
+  experiments <- lapply(x$resources, function(resource) {
+    features <- vapply(resource@query$feature_selection %||% list(), .sn_feature_name, character(1))
+    if (!length(features)) stop("Each collection Resource needs a bounded feature selection before MultiAssayExperiment conversion.", call. = FALSE)
+    sn_as(resource, "SummarizedExperiment", features = features, source = "auto", allow_large = allow_large, ...)
+  })
+  if (!requireNamespace("MultiAssayExperiment", quietly = TRUE)) stop("Package `MultiAssayExperiment` is required.", call. = FALSE)
+  MultiAssayExperiment::MultiAssayExperiment(experiments = experiments,
+    sampleMap = S4Vectors::DataFrame(x$sample_map), metadata = list(shennong = x$provenance))
 }
 
 sn_set_sample_map <- function(collection, sample_map) {

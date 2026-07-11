@@ -31,6 +31,10 @@ sn_conversion_plan <- function(x, target, source = c("auto", "query", "artifact"
                                layer = NULL, features = NULL, observations = NULL, fields = NULL,
                                allow_large = FALSE, ...) {
   target <- .sn_target(target); source <- match.arg(source)
+  if (inherits(x, "ShennongCollection")) {
+    if (!identical(target, "MultiAssayExperiment")) stop("Unsupported collection target `", target, "`.", call. = FALSE)
+    return(structure(list(target = target, source = source, ready = !is.null(x$sample_map), resources = names(x$resources), requirements = list(sample_map = is.null(x$sample_map))), class = "shennong_conversion_plan"))
+  }
   if (inherits(x, "shennong_result")) {
     resource <- sn_resource_ref(x); measurement <- attr(x, "shennong_provenance")$layer
     return(structure(list(target = target, source = source, resource = resource, layer = measurement,
@@ -70,6 +74,7 @@ print.shennong_conversion_plan <- function(x, ...) { cat("<shennong_conversion_p
 sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NULL, layer = NULL,
                  features = NULL, observations = NULL, fields = NULL, allow_large = FALSE, ...) {
   target <- .sn_target(target); source <- match.arg(source)
+  if (inherits(x, "ShennongCollection")) return(sn_as_collection(x, target = target, allow_large = allow_large, ...))
   if (target == "Surv") {
     if (!inherits(x, "shennong_result")) stop("Surv conversion requires a materialized result with time/event fields.", call. = FALSE)
     args <- list(...); time <- args$time %||% args$endpoint_time %||% "time"; event <- args$event %||% "event"
