@@ -68,6 +68,24 @@ test_that("server capability negotiation exposes streaming and structured errors
   expect_false(sn_server_features(con)$batch_features)
 })
 
+test_that("advertised batch query capability removes feature fan-out", {
+  seen <- character()
+  resource <- .phase_fixture("agent-resource-toil.json")
+  query <- .phase_fixture("query-expression.json")
+  testthat::local_mocked_bindings(
+    .sn_perform_json = function(req, retries, throttle) {
+      seen <<- c(seen, req$url)
+      if (grepl("/agent/resources/", req$url)) resource else query
+    }, .package = "ShennongData"
+  )
+  con <- ShennongData:::.sn_new_connection("http://example.test", "batch", tempdir(), 60, 3L, 4, NULL)
+  con$capabilities <- list(batch_features = TRUE, query_operations = "expression_batch")
+  x <- sn_load_data("toil", connection = con)
+  out <- sn_fetch_data(x, features = c("g1", "g2"), resolve = "never")
+  expect_s3_class(out, "shennong_result")
+  expect_equal(sum(grepl("/api/v1/query/batch", seen)), 1L)
+})
+
 test_that("count-based converters reject transformed Toil measurements", {
   testthat::local_mocked_bindings(.sn_perform_json = function(...) .phase_fixture("agent-resource-toil.json"), .package = "ShennongData")
   con <- ShennongData:::.sn_new_connection("http://example.test", "phase3", tempdir(), 60, 3L, 4, NULL)

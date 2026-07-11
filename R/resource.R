@@ -145,6 +145,12 @@ sn_observation_ids <- function(x, collect = TRUE) {
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
   ids <- get0("observation_ids", envir = x@cache, inherits = FALSE, ifnotfound = NULL)
   if (!is.null(ids) || !isTRUE(collect)) return(ids)
+  if (isTRUE(sn_server_features(.sn_connection_from_handle(x))$axes)) {
+    response <- .sn_perform_json(sn_request(x@connection, .sn_endpoint("axis", utils::URLencode(x@resource$id, reserved = TRUE), "observation")), retries = x@connection$retries, throttle = x@connection$throttle)
+    ids <- response$data$ids %||% response$ids %||% response$data
+    if (!is.character(ids)) stop("Server returned an invalid observation axis.", call. = FALSE)
+    assign("observation_ids", ids, envir = x@cache); return(ids)
+  }
   stop("The current ShennongDB contract has no bounded observation-axis endpoint; use an Artifact or a bounded fetch.", call. = FALSE)
 }
 
@@ -152,6 +158,12 @@ sn_feature_ids <- function(x, collect = TRUE) {
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
   ids <- get0("feature_ids", envir = x@cache, inherits = FALSE, ifnotfound = NULL)
   if (!is.null(ids) || !isTRUE(collect)) return(ids)
+  if (isTRUE(sn_server_features(.sn_connection_from_handle(x))$axes)) {
+    response <- .sn_perform_json(sn_request(x@connection, .sn_endpoint("axis", utils::URLencode(x@resource$id, reserved = TRUE), "feature")), retries = x@connection$retries, throttle = x@connection$throttle)
+    ids <- response$data$ids %||% response$ids %||% response$data
+    if (!is.character(ids)) stop("Server returned an invalid feature axis.", call. = FALSE)
+    assign("feature_ids", ids, envir = x@cache); return(ids)
+  }
   stop("The current ShennongDB contract has no bounded feature-axis endpoint; use an Artifact or a bounded fetch.", call. = FALSE)
 }
 

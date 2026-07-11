@@ -32,6 +32,7 @@ sn_session_token <- function() {
   resources = "/api/v1/resources",
   agent_manifest = "/.well-known/shennong-agent.json",
   agent_resource = "/api/v1/agent/resources/%s",
+  axis = "/api/v1/agent/resources/%s/axes/%s",
   artifact_download = "/api/v1/resources/%s/artifacts/%s/download",
   query = "/api/v1/query",
   query_batch = "/api/v1/query/batch",
@@ -117,12 +118,12 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   if (httr2::resp_status(response) >= 400L) {
     body <- tryCatch(httr2::resp_body_json(response, simplifyVector = FALSE), error = function(e) NULL)
     error <- body$error %||% body$message %||% httr2::resp_body_string(response)
-    code <- NULL; details <- NULL
+    code <- body$code %||% NULL; details <- body$details %||% NULL
     if (is.list(error)) {
       code <- error$code %||% error$type %||% NULL
       details <- error$details %||% NULL
       error <- error$message %||% error$error %||% "request failed"
-    }
+    } else error <- body$message %||% error
     condition <- structure(list(message = paste0("Shennong API request failed: ", error),
                                 call = NULL, status = httr2::resp_status(response), code = code, details = details),
                            class = c("shennong_api_error", "error", "condition"))
