@@ -31,6 +31,10 @@ sn_conversion_plan <- function(x, target, source = c("auto", "query", "artifact"
                                layer = NULL, features = NULL, observations = NULL, fields = NULL,
                                allow_large = FALSE, ...) {
   target <- .sn_target(target); source <- match.arg(source)
+  if (exists(target, envir = .sn_converter_registry, inherits = FALSE)) {
+    converter <- get(target, envir = .sn_converter_registry, inherits = FALSE)
+    if (isTRUE(do.call(converter$can_convert, c(list(x), list(...))))) return(do.call(converter$plan, c(list(x), list(...))))
+  }
   if (inherits(x, "ShennongCollection")) {
     if (!identical(target, "MultiAssayExperiment")) stop("Unsupported collection target `", target, "`.", call. = FALSE)
     return(structure(list(target = target, source = source, ready = !is.null(x$sample_map), resources = names(x$resources), requirements = list(sample_map = is.null(x$sample_map))), class = "shennong_conversion_plan"))
@@ -75,6 +79,10 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
                  features = NULL, observations = NULL, fields = NULL, allow_large = FALSE, ...) {
   target <- .sn_target(target); source <- match.arg(source)
   if (inherits(x, "ShennongCollection")) return(sn_as_collection(x, target = target, allow_large = allow_large, ...))
+  if (exists(target, envir = .sn_converter_registry, inherits = FALSE)) {
+    converter <- get(target, envir = .sn_converter_registry, inherits = FALSE)
+    if (isTRUE(do.call(converter$can_convert, c(list(x), list(...))))) return(do.call(converter$convert, c(list(x), list(...))))
+  }
   if (target == "Surv") {
     if (!inherits(x, "shennong_result")) stop("Surv conversion requires a materialized result with time/event fields.", call. = FALSE)
     args <- list(...); time <- args$time %||% args$endpoint_time %||% "time"; event <- args$event %||% "event"
@@ -135,13 +143,15 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
     data <- as.data.frame(result); group <- list(...)$group.by %||% "cell_type"
     if (!group %in% names(data)) stop("CellChat conversion requires missing Resource/annotation `cell_type_annotation` (or an explicit `group.by` field).", call. = FALSE)
     meta <- unique(data[c("observation_id", group)]); rownames(meta) <- meta$observation_id
-    return(CellChat::createCellChat(object = .sn_result_matrix(result), meta = meta, group.by = group))
+    object <- CellChat::createCellChat(object = .sn_result_matrix(result), meta = meta, group.by = group)
+    object@options$shennong <- sn_provenance(result); return(object)
   }
   if (target == "cell_data_set") {
     if (!requireNamespace("monocle3", quietly = TRUE)) stop("Package `monocle3` is required.", call. = FALSE)
     data <- as.data.frame(result); cell_metadata <- unique(data[c("observation_id", fields)]); rownames(cell_metadata) <- cell_metadata$observation_id
     gene_metadata <- data.frame(gene_short_name = rownames(.sn_result_matrix(result)), row.names = rownames(.sn_result_matrix(result)))
-    return(monocle3::new_cell_data_set(.sn_result_matrix(result), cell_metadata = cell_metadata, gene_metadata = gene_metadata))
+    cds <- monocle3::new_cell_data_set(.sn_result_matrix(result), cell_metadata = cell_metadata, gene_metadata = gene_metadata)
+    S4Vectors::metadata(cds)$shennong <- sn_provenance(result); return(cds)
   }
   stop("Unsupported conversion target `", target, "`.", call. = FALSE)
 }
@@ -159,6 +169,7 @@ sn_export <- function(x, format, path, source = c("auto", "query", "artifact"), 
     artifact <- tryCatch(sn_artifact(x, format = "h5ad"), error = function(e) NULL)
     if (!is.null(artifact)) return(sn_download_artifact(x, artifact, path, verify = verify, overwrite = overwrite, ...))
   }
+  if (format == "arrow" && S7::S7_inherits(x, ShennongData)) return(sn_stream_data(x, path = path, ...))
   if (format %in% c("h5ad", "h5mu")) stop("H5AD/H5MU export requires a matching Artifact or an explicit zellkonverter/anndata runtime; use `sn_runtime_check()` before exporting.", call. = FALSE)
   result <- if (inherits(x, "shennong_result")) x else sn_fetch_data(x, source = source, shape = "long", ...)
   if (format %in% c("csv", "tsv", "txt")) {

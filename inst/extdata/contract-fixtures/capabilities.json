@@ -1,6 +1,13 @@
 {
   "data": {
     "api_version": "v1",
+    "batch_features": false,
+    "metadata_views": false,
+    "axes": false,
+    "cursor": false,
+    "arrow": false,
+    "structured_errors": true,
+    "artifact_streaming": true,
     "resources": ["discover", "inspect", "artifacts", "relations"],
     "query_operations": ["expression", "survival_expression", "embedding_expression"],
     "artifact_formats": ["h5", "h5ad", "zarr", "parquet", "csv", "tsv", "txt", "bam", "fasta", "gtf", "sqlite", "feather", "tiledb", "clickhouse"],

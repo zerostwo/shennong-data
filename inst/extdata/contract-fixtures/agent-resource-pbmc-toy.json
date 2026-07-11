@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.1",
+  "discovery_level": "resource",
+  "resource": {
+    "id": "pbmc-toy",
+    "kind": "Dataset",
+    "metadata": {
+      "title": "PBMC toy counts",
+      "data_model": "single_cell",
+      "assays": ["rna"],
+      "dimensions": {"features": 2, "cells": 2},
+      "supported_context": ["cell_type"]
+    },
+    "spec": {"version": "toy-1", "backend": "local", "operations": ["expression"]},
+    "status": "available",
+    "provenance": {"source": "test"},
+    "artifacts": [
+      {
+        "id": "pbmc-toy-expression",
+        "resource_id": "pbmc-toy",
+        "uri": "pbmc-toy.tsv",
+        "format": "tsv",
+        "size": 48,
+        "checksum": null,
+        "storage_backend": "local",
+        "schema": {
+          "role": "expression",
+          "layout": "gene_by_cell",
+          "feature_field": "gene_id",
+          "observation_field": "cell_id",
+          "measure": "counts",
+          "unit": "count",
+          "transformation": "identity",
+          "value_type": "integer",
+          "sparse": true,
+          "implicit_zero": true,
+          "operation": "expression"
+        },
+        "provenance": {"source": "test"}
+      }
+    ],
+    "relations": []
+  }
+}

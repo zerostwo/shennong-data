@@ -44,7 +44,7 @@
 
 .sn_resolve_feature_response <- function(response, inputs, resource_id) {
   payload <- response$data %||% response
-  rows <- payload$data %||% payload$results %||% payload
+  rows <- payload$matches %||% payload$data %||% payload$results %||% payload
   if (is.list(rows) && !is.null(rows$matches)) rows <- rows$matches
   if (is.null(rows)) rows <- list()
   if (is.data.frame(rows)) rows <- split(rows, seq_len(nrow(rows)))
@@ -76,15 +76,22 @@ sn_resolve_features <- function(x, features, resources = NULL, strict = TRUE,
   features <- unique(as.character(features))
   if (!length(features) || any(!nzchar(features))) stop("`features` must contain non-empty identifiers.", call. = FALSE)
   invisible(resources)
-  body <- list(resource = x@resource$id, features = features, canonical = canonical,
-               version = x@resource$version)
-  response <- tryCatch(.sn_perform_json(sn_request(x@connection, .sn_endpoint("genes_resolve"), method = "POST", body = body), retries = x@connection$retries, throttle = x@connection$throttle), error = function(e) NULL)
-  resolved <- if (is.null(response)) {
+  resolve_one <- function(input) {
+    req <- sn_request(x@connection, .sn_endpoint("genes_resolve"), method = "GET")
+    req <- httr2::req_url_query(req, q = input, resources = x@resource$id)
+    .sn_perform_json(req, retries = x@connection$retries, throttle = x@connection$throttle)
+  }
+  responses <- tryCatch(lapply(features, resolve_one), error = function(e) NULL)
+  resolved <- if (is.null(responses)) {
     if (all(grepl("^ENS[A-Z]*[0-9]+(?:\\.[0-9]+)?$", features))) {
       lapply(features, function(input) list(input = input, resource = x@resource$id, original_id = input,
                                             resolved_id = input, stable_id = sub("\\..*$", "", input), symbol = NA_character_))
     } else if (isTRUE(strict)) stop("Feature resolution endpoint failed for Resource `", x@resource$id, "`.", call. = FALSE) else lapply(features, function(input) list(input = input, resource = x@resource$id, original_id = input, resolved_id = input, stable_id = sub("\\..*$", "", input), symbol = NA_character_))
-  } else .sn_resolve_feature_response(response, features, x@resource$id)
+  } else {
+    lapply(seq_along(features), function(i) {
+      .sn_resolve_feature_response(responses[[i]], features[[i]], x@resource$id)[[1L]]
+    })
+  }
   if (isTRUE(strict)) {
     missing <- vapply(resolved, function(z) is.null(z$resolved_id) || !nzchar(z$resolved_id), logical(1))
     if (any(missing)) stop("One or more feature identifiers could not be resolved.", class = "shennong_identifier_missing")
@@ -112,6 +119,22 @@ sn_resolve_features <- function(x, features, resources = NULL, strict = TRUE,
   out
 }
 
+.sn_query_pages <- function(x, body, feature, path = "query", max_pages = 100L) {
+  pages <- list(); cursors <- character(); current <- body
+  for (page in seq_len(max_pages)) {
+    response <- .sn_perform_json(sn_request(x@connection, .sn_endpoint(path), method = "POST", body = current), retries = x@connection$retries, throttle = x@connection$throttle)
+    pages[[page]] <- response
+    meta <- response$data$meta %||% response$meta %||% list()
+    cursor <- meta$next_cursor %||% meta$cursor %||% response$next_cursor %||% NULL
+    if (is.null(cursor) || !nzchar(as.character(cursor))) break
+    if (cursor %in% cursors) stop("Server returned a repeated query cursor.", call. = FALSE)
+    cursors <- c(cursors, as.character(cursor)); current$options <- utils::modifyList(current$options %||% list(), list(cursor = cursor))
+    if (page == max_pages) stop("Query exceeded the cursor page limit; narrow the request or use an Artifact.", call. = FALSE)
+  }
+  data <- do.call(rbind, lapply(pages, .sn_query_row_data, feature = feature))
+  attr(data, "shennong_pages") <- length(pages); data
+}
+
 .sn_as_result <- function(data, x, plan, provenance, partial = FALSE) {
   if (requireNamespace("tibble", quietly = TRUE)) data <- tibble::as_tibble(data)
   class(data) <- unique(c("shennong_result", class(data)))
@@ -129,9 +152,9 @@ sn_is_partial <- function(x) isTRUE(attr(x, "shennong_partial"))
 sn_resource_ref <- function(x) attr(x, "shennong_resource")
 
 print.shennong_result <- function(x, ...) {
-  p <- sn_provenance(x)
+  p <- sn_provenance(x) %||% list(resource = list(), layer = NULL)
   cat("<shennong_result>\nResource: ", p$resource$id %||% "unknown", "@", p$resource$version %||% "current", " | layer: ", p$layer %||% "unknown", "\n", sep = "")
-  cat("Partial: ", sn_is_partial(x), "\n", sep = "")
+  cat("Partial: ", sn_is_partial(x), if (isTRUE(p$nonzero_subset)) " (nonzero subset)" else "", "\n", sep = "")
   NextMethod("print")
 }
 
@@ -154,6 +177,13 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
   ctx <- .sn_context_merge(x, context)
   n_limit <- limit %||% x@query$limit
   if (!is.null(n_limit) && (length(n_limit) != 1L || is.na(n_limit) || n_limit < 1)) stop("`limit` must be a positive scalar.", call. = FALSE)
+  estimated_observations <- if (!is.null(n_limit)) as.numeric(n_limit) else as.numeric(x@resource$axes$observation$size)
+  estimated_cells <- length(resolved) * estimated_observations
+  if (is.finite(estimated_cells) && estimated_cells > 0) {
+    bytes <- estimated_cells * 8 * 2
+    threshold <- if (shape %in% c("matrix", "sparse")) getOption("ShennongData.max_matrix_bytes", 256 * 1024^2) else getOption("ShennongData.max_result_bytes", 512 * 1024^2)
+    if (!isTRUE(allow_large) && is.finite(bytes) && bytes > threshold) stop("Estimated materialization is ", format(bytes, big.mark = ","), " bytes; narrow features/context or set `allow_large = TRUE`.", call. = FALSE)
+  }
   if (identical(source, "artifact")) return(.sn_fetch_from_artifact(x, resolved, fields, measurement$name, shape, allow_large = allow_large, ...))
   if (identical(source, "auto") && !length(ctx) && length(x@resource$artifacts) && length(resolved) > 100L) return(.sn_fetch_from_artifact(x, resolved, fields, measurement$name, shape, allow_large = allow_large, ...))
   if (length(resolved) > 100L && !isTRUE(allow_large)) stop("Refusing more than 100 feature requests without `allow_large = TRUE`; use an Artifact route.", call. = FALSE)
@@ -171,7 +201,7 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
                                    options = if (is.null(n_limit)) list() else list(limit = as.integer(n_limit))))
   rows <- vector("list", length(requests)); failures <- list()
   for (i in seq_along(requests)) {
-    rows[[i]] <- tryCatch(.sn_query_row_data(.sn_perform_json(sn_request(x@connection, .sn_endpoint(if (batch) "query_batch" else "query"), method = "POST", body = requests[[i]]), retries = x@connection$retries, throttle = x@connection$throttle), if (batch) resolved else resolved[[i]]), error = function(e) { failures[[length(failures) + 1L]] <<- list(feature = if (batch) resolved else resolved[[i]], error = conditionMessage(e)); NULL })
+    rows[[i]] <- tryCatch(.sn_query_pages(x, requests[[i]], if (batch) resolved else resolved[[i]], path = if (batch) "query_batch" else "query"), error = function(e) { failures[[length(failures) + 1L]] <<- list(feature = if (batch) resolved else resolved[[i]], error = conditionMessage(e)); NULL })
     if (length(failures) && isTRUE(fail_fast)) stop(failures[[1L]]$error, call. = FALSE)
   }
   data <- do.call(rbind, Filter(Negate(is.null), rows)); if (is.null(data)) data <- data.frame()
@@ -183,8 +213,34 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
   plan <- .sn_empty_query(x); plan$feature_selection <- resolved; plan$field_selection <- fields; plan$observation_predicate <- x@query$observation_predicate; plan$context <- ctx; plan$layer <- measurement$name; plan$operation <- operation; plan$shape <- shape; plan$limit <- n_limit
   if (shape == "wide" && nrow(data)) data <- .sn_long_to_wide(data)
   if (shape %in% c("matrix", "sparse")) data <- .sn_long_to_matrix(data, resolved, sparse = shape == "sparse")
-  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), layer = measurement$name, operation = operation, context = ctx, feature_map = resolved, requests = requests, failures = failures, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), timestamp = format(Sys.time(), tz = "UTC"), partial = length(failures) > 0L)
-  .sn_as_result(data, x, plan, provenance, partial = length(failures) > 0L)
+  nonzero_subset <- isTRUE(measurement$spec$sparse) && !isTRUE(measurement$spec$implicit_zero) && identical(source, "query")
+  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), layer = measurement$name, operation = operation, context = ctx, feature_map = resolved, requests = requests, pages = sum(vapply(rows, function(z) attr(z, "shennong_pages") %||% 0L, integer(1))), failures = failures, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), timestamp = format(Sys.time(), tz = "UTC"), nonzero_subset = nonzero_subset, partial = length(failures) > 0L || nonzero_subset)
+  .sn_as_result(data, x, plan, provenance, partial = length(failures) > 0L || nonzero_subset)
+}
+
+sn_stream_data <- function(x, features = NULL, fields = NULL, context = NULL,
+                           layer = NULL, operation = NULL,
+                           format = c("arrow", "jsonl"), path = NULL,
+                           allow_large = FALSE, ...) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  format <- match.arg(format)
+  capabilities <- sn_server_features(.sn_connection_from_handle(x))
+  if (format == "arrow" && !isTRUE(capabilities$arrow)) stop("The server did not advertise Arrow streaming.", call. = FALSE)
+  if (is.null(features) && length(x@query$feature_selection)) features <- vapply(x@query$feature_selection, .sn_feature_name, character(1))
+  if (is.null(features) || !length(features)) stop("`features` is required for streaming.", call. = FALSE)
+  measurement <- .sn_measurement(x, layer)
+  resolved <- sn_resolve_features(x, features, strict = FALSE)
+  body <- list(resource = x@resource$id, operation = operation %||% measurement$spec$operation %||% "expression",
+               features = lapply(resolved, function(z) list(type = "gene", name = z$resolved_id)),
+               context = .sn_context_merge(x, context), version = x@resource$version,
+               options = list(format = format, fields = fields %||% character()))
+  req <- sn_request(x@connection, .sn_endpoint("query_stream"), method = "POST", body = body)
+  req <- httr2::req_headers(req, Accept = if (format == "arrow") "application/vnd.apache.arrow.stream" else "application/x-ndjson")
+  response <- .sn_perform_raw(req, retries = x@connection$retries, throttle = x@connection$throttle)
+  bytes <- httr2::resp_body_raw(response)
+  if (is.null(path)) return(bytes)
+  if (file.exists(path) && !isTRUE(allow_large)) stop("Destination already exists: ", path, call. = FALSE)
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE); writeBin(bytes, path); invisible(path)
 }
 
 .sn_long_to_wide <- function(data) {

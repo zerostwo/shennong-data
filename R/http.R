@@ -32,8 +32,10 @@ sn_session_token <- function() {
   resources = "/api/v1/resources",
   agent_manifest = "/.well-known/shennong-agent.json",
   agent_resource = "/api/v1/agent/resources/%s",
+  artifact_download = "/api/v1/resources/%s/artifacts/%s/download",
   query = "/api/v1/query",
   query_batch = "/api/v1/query/batch",
+  query_stream = "/api/v1/query/stream",
   genes_resolve = "/api/v1/genes/resolve"
 )
 
@@ -96,6 +98,12 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   .sn_parse_json_response(httr2::req_perform(req))
 }
 
+.sn_perform_raw <- function(req, retries = 3L, throttle = 4) {
+  req <- httr2::req_retry(req, max_tries = as.integer(retries))
+  req <- httr2::req_throttle(req, rate = throttle, capacity = throttle, fill_time_s = 1)
+  httr2::req_perform(req)
+}
+
 .sn_request_json <- function(method, url, body = NULL, headers = NULL) {
   req <- httr2::request(url)
   req <- httr2::req_method(req, method)
@@ -108,8 +116,17 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
 .sn_parse_json_response <- function(response) {
   if (httr2::resp_status(response) >= 400L) {
     body <- tryCatch(httr2::resp_body_json(response, simplifyVector = FALSE), error = function(e) NULL)
-    message <- body$error %||% body$message %||% httr2::resp_body_string(response)
-    stop("Shennong API request failed: ", message, call. = FALSE)
+    error <- body$error %||% body$message %||% httr2::resp_body_string(response)
+    code <- NULL; details <- NULL
+    if (is.list(error)) {
+      code <- error$code %||% error$type %||% NULL
+      details <- error$details %||% NULL
+      error <- error$message %||% error$error %||% "request failed"
+    }
+    condition <- structure(list(message = paste0("Shennong API request failed: ", error),
+                                call = NULL, status = httr2::resp_status(response), code = code, details = details),
+                           class = c("shennong_api_error", "error", "condition"))
+    stop(condition)
   }
   httr2::resp_body_json(response, simplifyVector = FALSE)
 }

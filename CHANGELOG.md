@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   resolution, bounded multi-feature fetch, and provenance-aware results.
 - Artifact listing/download verification, conversion planning, biological
   object adapters, relation/collection helpers, and server capability flags.
+- Align gene resolution with the server GET contract, use Artifact-ID download
+  routes, consume cursor pages, and expose Arrow/JSONL streaming hooks.
 
 ### Changed
 

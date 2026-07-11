@@ -10,7 +10,7 @@
     storage_backend = artifact$storage_backend %||% NA_character_,
     layout = schema$layout %||% NA_character_,
     measure = schema$measure %||% NA_character_,
-    downloadable = !is.null(artifact$uri),
+    downloadable = !is.null(artifact$id) && nzchar(artifact$id),
     stringsAsFactors = FALSE
   )
 }
@@ -43,7 +43,7 @@ sn_artifact <- function(x, id = NULL, role = NULL, format = NULL) {
 .sn_verify_file <- function(path, checksum) {
   if (is.null(checksum) || !nzchar(checksum)) return(TRUE)
   parts <- strsplit(checksum, ":", fixed = TRUE)[[1L]]
-  algo <- tolower(if (length(parts) > 1L) parts[[1L]] else "md5")
+  algo <- tolower(if (length(parts) > 1L) parts[[1L]] else if (nchar(parts[[1L]]) == 64L) "sha256" else "md5")
   expected <- parts[[length(parts)]]
   if (!requireNamespace("digest", quietly = TRUE)) stop("Package `digest` is required to verify Artifact checksums.", call. = FALSE)
   actual <- digest::digest(file = path, algo = algo, serialize = FALSE)
@@ -64,13 +64,24 @@ sn_download_artifact <- function(x, artifact, path, verify = TRUE, overwrite = F
     if (!file.copy(source, path, overwrite = TRUE)) stop("Could not copy Artifact from `", source, "`.", call. = FALSE)
   } else {
     uri <- artifact$download_url %||% artifact$url %||% artifact$uri
-    if (is.null(uri) || !nzchar(uri)) stop("Artifact has no downloadable URI.", call. = FALSE)
+    if (is.null(uri) || !nzchar(uri)) {
+      if (is.null(artifact$id) || !nzchar(artifact$id)) stop("Artifact has no downloadable URI or ID.", call. = FALSE)
+      uri <- .sn_endpoint("artifact_download", utils::URLencode(x@resource$id, reserved = TRUE), utils::URLencode(artifact$id, reserved = TRUE))
+    }
     req <- httr2::request(if (grepl("^https?://", uri)) uri else .sn_url(x@connection$base_url, uri))
     req <- httr2::req_headers(req, Accept = "application/octet-stream")
     token <- .sn_connection_token(x@connection); if (!is.null(token)) req <- httr2::req_headers(req, Authorization = paste("Bearer", token), .redact = "Authorization")
     tmp <- paste0(path, ".part")
-    if (isTRUE(resume) && file.exists(tmp)) resume <- FALSE # current server has no Range contract
-    response <- httr2::req_perform(req); writeBin(httr2::resp_body_raw(response), tmp); file.rename(tmp, path)
+    offset <- if (isTRUE(resume) && file.exists(tmp)) as.numeric(file.info(tmp)$size) else 0
+    if (offset > 0) req <- httr2::req_headers(req, Range = paste0("bytes=", offset, "-"))
+    response <- httr2::req_perform(req)
+    status <- httr2::resp_status(response)
+    body <- httr2::resp_body_raw(response)
+    if (status == 206L && offset > 0) {
+      con <- file(tmp, open = "ab"); writeBin(body, con); close(con)
+    } else if (status == 200L) writeBin(body, tmp)
+    else stop("Artifact download returned unexpected HTTP status ", status, ".", call. = FALSE)
+    if (!file.rename(tmp, path)) stop("Could not finalize Artifact download.", call. = FALSE)
   }
   if (isTRUE(verify) && !.sn_verify_file(path, artifact$checksum)) { unlink(path); stop("Artifact checksum verification failed.", call. = FALSE) }
   sidecar <- paste0(path, ".shennong.json")
@@ -81,7 +92,13 @@ sn_download_artifact <- function(x, artifact, path, verify = TRUE, overwrite = F
 .sn_fetch_from_artifact <- function(x, resolved, fields, layer, shape, allow_large = FALSE, ...) {
   artifact <- sn_artifact(x, role = "expression")
   path <- .sn_artifact_path(artifact)
-  if (is.null(path)) stop("Artifact route selected but the Artifact is not locally readable; use `sn_download_artifact()` first.", call. = FALSE)
+  if (is.null(path)) {
+    cache_dir <- file.path(x@connection$cache_dir, "artifacts", x@resource$id)
+    dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+    suffix <- artifact$format %||% "bin"
+    path <- file.path(cache_dir, paste0(artifact$id, ".", suffix))
+    if (!file.exists(path)) sn_download_artifact(x, artifact, path, verify = TRUE, overwrite = FALSE, allow_large = allow_large)
+  }
   format <- tolower(artifact$format %||% tools::file_ext(path))
   if (!format %in% c("rds", "rda", "rdata", "csv", "tsv", "txt")) stop("Artifact format `", format, "` is not supported by the built-in reader.", call. = FALSE)
   raw <- if (format == "rds") readRDS(path) else if (format %in% c("rda", "rdata")) { e <- new.env(); load(path, envir = e); as.list(e) } else utils::read.delim(path, check.names = FALSE, stringsAsFactors = FALSE)

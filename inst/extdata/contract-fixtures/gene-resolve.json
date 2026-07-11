@@ -1,0 +1,16 @@
+{
+  "data": {
+    "query": "YTHDF2",
+    "status": "resolved",
+    "canonical_id": "ENSG00000198492",
+    "canonical_namespace": "Ensembl gene stable ID without version suffix",
+    "matches": [
+      {
+        "original_id": "ENSG00000198492.14",
+        "stable_id": "ENSG00000198492",
+        "symbol": "YTHDF2",
+        "annotation": "GENCODE v23"
+      }
+    ]
+  }
+}
