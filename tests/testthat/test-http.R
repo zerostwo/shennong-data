@@ -6,8 +6,17 @@ test_that("endpoint paths have one source of truth", {
 })
 
 test_that("httr2 requests use JSON and redact bearer tokens", {
+  connection <- ShennongData:::.sn_new_connection(
+    "http://example.test", "http-test", tempdir(), 60, 3L, 4, NULL
+  )
+  key <- ShennongData:::.sn_connection_key(connection)
+  assign(
+    key, "secret-token",
+    envir = ShennongData:::.sn_token_registry
+  )
+  on.exit(rm(list = key, envir = ShennongData:::.sn_token_registry), add = TRUE)
   req <- sn_request(
-    list(base_url = "http://example.test", token = "secret-token"),
+    connection,
     ShennongData:::.sn_endpoint("query"),
     method = "POST",
     body = list(resource = "toil"),

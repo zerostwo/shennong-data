@@ -90,7 +90,12 @@ sn_admin_token <- function(token = NULL) {
   .sn_normalize_url(url)
 }
 
-.sn_connection_token <- function(connection) connection$token %||% sn_get_api_token()
+.sn_connection_token <- function(connection) {
+  if (exists(".sn_resolve_token", mode = "function", inherits = TRUE)) {
+    return(.sn_resolve_token(connection))
+  }
+  connection$token %||% sn_get_api_token()
+}
 
 sn_request <- function(connection, path, method = "GET", body = NULL,
                        auth = c("user", "admin", "none")) {
@@ -98,6 +103,8 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   req <- httr2::request(.sn_url(.sn_connection_url(connection), path))
   req <- httr2::req_method(req, method)
   req <- httr2::req_headers(req, Accept = "application/json")
+  if (!is.null(connection$timeout)) req <- httr2::req_timeout(req, connection$timeout)
+  if (!is.null(connection$user_agent)) req <- httr2::req_user_agent(req, connection$user_agent)
   if (!is.null(body)) req <- httr2::req_body_json(req, body)
 
   token <- switch(
