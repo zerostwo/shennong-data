@@ -65,7 +65,7 @@ test_that("server capability negotiation exposes streaming and structured errors
   con$capabilities <- .phase_fixture("capabilities.json")$data
   expect_true(sn_server_features(con)$structured_errors)
   expect_true(sn_server_features(con)$artifact_streaming)
-  expect_false(sn_server_features(con)$batch_features)
+  expect_true(sn_server_features(con)$batch_features)
 })
 
 test_that("advertised batch query capability removes feature fan-out", {
