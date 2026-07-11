@@ -23,7 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Testing
 
 - Add Phase 2–5 contract coverage for fetch, conversion guards, artifacts, and
-  collections.
+  collections, cursor pages, capability-gated batch/axis paths, and structured
+  API errors.
 
 ## [0.1.2] - 2026-07-09
 
