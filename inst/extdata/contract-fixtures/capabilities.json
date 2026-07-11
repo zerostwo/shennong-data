@@ -4,7 +4,7 @@
     "batch_features": true,
     "metadata_views": false,
     "axes": false,
-    "cursor": false,
+    "cursor": true,
     "arrow": false,
     "structured_errors": true,
     "artifact_streaming": true,
