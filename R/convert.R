@@ -77,6 +77,13 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
     if (!requireNamespace("survival", quietly = TRUE)) stop("Package `survival` is required.", call. = FALSE)
     return(survival::Surv(x[[time]], x[[event]]))
   }
+  if (target == "survival_data") {
+    if (!inherits(x, "shennong_result")) stop("`survival_data` conversion requires a materialized result.", call. = FALSE)
+    args <- list(...); time <- args$time %||% "time"; event <- args$event %||% "event"
+    if (!all(c(time, event) %in% names(x))) stop("Survival result requires fields `", time, "` and `", event, "`.", call. = FALSE)
+    if (!requireNamespace("survival", quietly = TRUE)) stop("Package `survival` is required.", call. = FALSE)
+    return(list(data = x, surv = survival::Surv(x[[time]], x[[event]]), endpoint = args$endpoint %||% NULL, time = time, event = event, provenance = sn_provenance(x)))
+  }
   if (target %in% c("DESeqDataSet", "DGEList")) {
     if (S7::S7_inherits(x, ShennongData)) .sn_require_measurement(x, layer, counts = TRUE)
     else if (!inherits(x, "shennong_result")) stop("Count-based conversion requires a ShennongData handle or shennong_result.", call. = FALSE)
