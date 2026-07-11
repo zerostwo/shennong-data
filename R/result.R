@@ -193,11 +193,11 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
     options <- list(); if (!is.null(n_limit)) options$limit <- as.integer(n_limit)
     list(resource = x@resource$id, operation = operation,
          feature = list(type = "gene", name = feature$resolved_id),
-         context = ctx, version = x@resource$version, options = options)
+         context = if (length(ctx)) ctx else NULL, version = x@resource$version, options = options)
   })
   if (batch) requests <- list(list(resource = x@resource$id, operation = operation,
                                    features = lapply(resolved, function(feature) list(type = "gene", name = feature$resolved_id)),
-                                   context = ctx, version = x@resource$version,
+                                   context = if (length(ctx)) ctx else NULL, version = x@resource$version,
                                    options = if (is.null(n_limit)) list() else list(limit = as.integer(n_limit))))
   rows <- vector("list", length(requests)); failures <- list()
   for (i in seq_along(requests)) {
@@ -208,7 +208,11 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
   if (nrow(data)) {
     if (!"feature" %in% names(data)) data$feature <- vapply(resolved, .sn_feature_name, character(1))[seq_len(min(nrow(data), length(resolved)))]
     if (length(fields)) for (field in fields) if (!field %in% names(data)) data[[field]] <- ctx[[field]] %||% NA
-    names(data)[names(data) == "sample_id"] <- if ("sample_id" %in% names(data)) "observation_id" else names(data)[names(data) == "sample_id"]
+    if (all(c("sample_id", "observation_id") %in% names(data))) {
+      data$sample_id <- NULL
+    } else if ("sample_id" %in% names(data)) {
+      names(data)[names(data) == "sample_id"] <- "observation_id"
+    }
   }
   plan <- .sn_empty_query(x); plan$feature_selection <- resolved; plan$field_selection <- fields; plan$observation_predicate <- x@query$observation_predicate; plan$context <- ctx; plan$layer <- measurement$name; plan$operation <- operation; plan$shape <- shape; plan$limit <- n_limit
   if (shape == "wide" && nrow(data)) data <- .sn_long_to_wide(data)

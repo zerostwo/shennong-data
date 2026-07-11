@@ -95,14 +95,14 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
 
 .sn_perform_json <- function(req, retries = 3L, throttle = 4) {
   req <- httr2::req_retry(req, max_tries = as.integer(retries))
-  req <- httr2::req_throttle(req, rate = throttle, capacity = throttle, fill_time_s = 1)
+  req <- httr2::req_throttle(req, rate = throttle)
   req <- httr2::req_error(req, is_error = function(resp) FALSE)
   .sn_parse_json_response(httr2::req_perform(req))
 }
 
 .sn_perform_raw <- function(req, retries = 3L, throttle = 4) {
   req <- httr2::req_retry(req, max_tries = as.integer(retries))
-  req <- httr2::req_throttle(req, rate = throttle, capacity = throttle, fill_time_s = 1)
+  req <- httr2::req_throttle(req, rate = throttle)
   httr2::req_perform(req)
 }
 
