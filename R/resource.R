@@ -20,15 +20,25 @@
 
 .sn_measurements <- function(resource) {
   artifacts <- resource$artifacts %||% list()
-  measures <- unique(vapply(artifacts, function(x) x$schema$measure %||% NA_character_, character(1)))
+  if (!length(artifacts) && is.list(resource$metadata$measurements)) {
+    values <- resource$metadata$measurements
+    if (is.null(names(values))) names(values) <- vapply(values, function(x) x$name %||% "measurement", character(1))
+    return(values)
+  }
+  measure_artifacts <- Filter(function(x) !is.null(x$schema$measure), artifacts)
+  measures <- unique(vapply(measure_artifacts, function(x) x$schema$measure %||% NA_character_, character(1)))
   measures <- measures[!is.na(measures)]
-  stats::setNames(lapply(measures, function(name) list(
-    name = name, assay = resource$metadata$assays[[1]] %||% NULL,
-    value_type = "unknown", unit = NULL, transformation = NULL, sparse = NULL,
-    implicit_zero = NULL, source_measure = name,
-    operation = resource$spec$operations[[1]] %||% NULL, artifact_role = "expression",
-    default = length(measures) == 1L
-  )), measures)
+  stats::setNames(lapply(measures, function(name) {
+    idx <- which(vapply(measure_artifacts, function(a) identical(a$schema$measure, name), logical(1)))[[1L]]
+    artifact <- measure_artifacts[[idx]]
+    schema <- artifact$schema
+    list(name = name, assay = schema$assay %||% resource$metadata$assays[[1]] %||% NULL,
+         value_type = schema$value_type %||% "unknown", unit = schema$unit %||% NULL,
+         transformation = schema$transformation %||% NULL, sparse = schema$sparse %||% NULL,
+         implicit_zero = schema$implicit_zero %||% NULL, source_measure = schema$source_measure %||% name,
+         operation = schema$operation %||% resource$spec$operations[[1]] %||% NULL,
+         artifact_role = schema$role %||% "expression", default = isTRUE(schema$default) || length(measures) == 1L)
+  }), measures)
 }
 
 .sn_normalize_resource <- function(detail) {
@@ -44,6 +54,10 @@
   observation_id <- observation_id[!is.na(observation_id)]
   supported_context <- .sn_chr(metadata$supported_context)
   observation_fields <- .sn_field_record(metadata$observation_fields, "context")
+  if (!length(observation_fields) && is.character(metadata$fields)) {
+    excluded <- c(feature_names, vapply(artifacts, function(a) a$schema$measure %||% "", character(1)))
+    observation_fields <- .sn_field_record(setdiff(metadata$fields, excluded), "context")
+  }
   if (!length(observation_fields)) {
     observation_fields <- .sn_field_record(unique(c(observation_id, supported_context)), "context")
     if (length(observation_id) == 1L) observation_fields[[observation_id]]$role <- "identifier"
@@ -85,6 +99,7 @@ sn_load_data <- function(resource, version = NULL,
                          validate = c("metadata", "capabilities", "none"), ...) {
   invisible(refresh)
   .sn_check_connection(connection)
+  if (is.data.frame(resource)) resource <- resource$id %||% resource$resource_id
   if (!is.character(resource) || length(resource) != 1L || !nzchar(resource)) stop("`resource` must be a non-empty character scalar.", call. = FALSE)
   view <- match.arg(view)
   validate <- match.arg(validate)
@@ -119,4 +134,29 @@ sn_resource <- function(x) .sn_view(x, "resource")
 sn_schema <- function(x) {
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
   x@resource
+}
+
+sn_layers <- function(x) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  names(x@resource$measurements %||% list())
+}
+
+sn_observation_ids <- function(x, collect = TRUE) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  ids <- get0("observation_ids", envir = x@cache, inherits = FALSE, ifnotfound = NULL)
+  if (!is.null(ids) || !isTRUE(collect)) return(ids)
+  stop("The current ShennongDB contract has no bounded observation-axis endpoint; use an Artifact or a bounded fetch.", call. = FALSE)
+}
+
+sn_feature_ids <- function(x, collect = TRUE) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  ids <- get0("feature_ids", envir = x@cache, inherits = FALSE, ifnotfound = NULL)
+  if (!is.null(ids) || !isTRUE(collect)) return(ids)
+  stop("The current ShennongDB contract has no bounded feature-axis endpoint; use an Artifact or a bounded fetch.", call. = FALSE)
+}
+
+sn_cache_ids <- function(x, axis = c("observation", "feature"), ids) {
+  if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
+  axis <- match.arg(axis); if (!is.character(ids)) stop("`ids` must be character.", call. = FALSE)
+  assign(if (axis == "observation") "observation_ids" else "feature_ids", ids, envir = x@cache); invisible(x)
 }

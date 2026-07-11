@@ -8,7 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- Placeholder for upcoming changes.
+- Typed serializable query plans, strict filter/select pushdown, feature
+  resolution, bounded multi-feature fetch, and provenance-aware results.
+- Artifact listing/download verification, conversion planning, biological
+  object adapters, relation/collection helpers, and server capability flags.
+
+### Changed
+
+- Expose metadata-first query, artifact, conversion, and collection APIs while
+  preserving the existing Resource handle contract.
+
+### Testing
+
+- Add Phase 2–5 contract coverage for fetch, conversion guards, artifacts, and
+  collections.
 
 ## [0.1.2] - 2026-07-09
 

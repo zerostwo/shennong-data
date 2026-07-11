@@ -33,6 +33,7 @@ sn_session_token <- function() {
   agent_manifest = "/.well-known/shennong-agent.json",
   agent_resource = "/api/v1/agent/resources/%s",
   query = "/api/v1/query",
+  query_batch = "/api/v1/query/batch",
   genes_resolve = "/api/v1/genes/resolve"
 )
 
@@ -111,6 +112,19 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
     stop("Shennong API request failed: ", message, call. = FALSE)
   }
   httr2::resp_body_json(response, simplifyVector = FALSE)
+}
+
+sn_server_features <- function(connection = sn_connection()) {
+  caps <- sn_capabilities(connection)
+  list(
+    batch_features = isTRUE(caps$batch_features) || "expression_batch" %in% (caps$query_operations %||% character()),
+    metadata_views = isTRUE(caps$metadata_views),
+    axes = isTRUE(caps$axes),
+    cursor = isTRUE(caps$cursor),
+    arrow = isTRUE(caps$arrow) || "arrow" %in% (caps$artifact_formats %||% character()),
+    structured_errors = isTRUE(caps$structured_errors),
+    artifact_streaming = isTRUE(caps$artifact_streaming)
+  )
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
