@@ -40,7 +40,7 @@
         "size": 8983490058,
         "checksum": null,
         "storage_backend": "local",
-        "schema": {"role": "expression", "layout": "gene_by_sample", "measure": "log2_tpm_plus_0.001"},
+        "schema": {"role": "expression", "layout": "gene_by_sample", "feature_field": "ensembl_gene_id", "observation_field": "sample_id", "measure": "log2_tpm_plus_0.001"},
         "provenance": {"source": "UCSC Xena Toil"}
       }
     ],
