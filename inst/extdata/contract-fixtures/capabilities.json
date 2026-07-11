@@ -1,0 +1,16 @@
+{
+  "data": {
+    "api_version": "v1",
+    "resources": ["discover", "inspect", "artifacts", "relations"],
+    "query_operations": ["expression", "survival_expression", "embedding_expression"],
+    "artifact_formats": ["h5", "h5ad", "zarr", "parquet", "csv", "tsv", "txt", "bam", "fasta", "gtf", "sqlite", "feather", "tiledb", "clickhouse"],
+    "storage_backends": ["local", "clickhouse", "tiledb"],
+    "query_schema": {
+      "resource": "resource id",
+      "operation": "expression",
+      "feature": {"type": "gene", "name": "gene symbol"},
+      "context": {"disease": "Resource-declared exact label", "sample_type": "Resource-declared exact label"},
+      "options": {"limit": "1..100000"}
+    }
+  }
+}

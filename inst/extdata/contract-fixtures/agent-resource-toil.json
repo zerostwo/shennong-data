@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.1",
+  "discovery_level": "resource",
+  "resource": {
+    "id": "toil",
+    "kind": "Dataset",
+    "metadata": {
+      "title": "TCGA TARGET GTEx Toil RNA-seq complete cohort",
+      "summary": "Harmonized bulk RNA-seq expression with phenotype, category, TCGA survival, and GENCODE v23 gene mapping.",
+      "organism": "human",
+      "data_model": "bulk",
+      "assays": ["rna"],
+      "dimensions": {"features": 60498, "samples": 19131},
+      "fields": ["sample_id", "ensembl_gene_id", "log2_tpm_plus_0.001"],
+      "reference": {
+        "assembly": "GRCh38.p3",
+        "gene_annotation": "GENCODE v23",
+        "identifier": "versioned Ensembl gene ID",
+        "canonical_cross_dataset_key": "Ensembl gene stable ID without version suffix"
+      },
+      "supported_context": ["disease", "primary_site", "sample_type", "study", "detailed_category"],
+      "analysis_capabilities": {
+        "ready": ["gene_expression_by_sample", "tumor_normal_expression_by_cancer", "survival_expression", "gene_resolution"],
+        "requires_additional_resources": {}
+      }
+    },
+    "spec": {
+      "version": "2018-05-08",
+      "backend": "local",
+      "operations": ["expression", "survival_expression"]
+    },
+    "status": "available",
+    "provenance": {"source": "UCSC Xena Toil"},
+    "artifacts": [
+      {
+        "id": "toil-expression",
+        "resource_id": "toil",
+        "uri": "/data/toil/TcgaTargetGtex_rsem_gene_tpm.tsv",
+        "format": "tsv",
+        "size": 8983490058,
+        "checksum": null,
+        "storage_backend": "local",
+        "schema": {"role": "expression", "layout": "gene_by_sample", "measure": "log2_tpm_plus_0.001"},
+        "provenance": {"source": "UCSC Xena Toil"}
+      }
+    ],
+    "relations": []
+  },
+  "query": {
+    "method": "POST",
+    "url": "/api/v1/query",
+    "body": {
+      "resource": "toil",
+      "operation": "expression",
+      "feature": {"type": "gene", "name": "ENSG00000198492.14"},
+      "options": {"limit": 100}
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "data": {
+    "status": "success",
+    "data": [
+      {
+        "sample_id": "TCGA-02-0001-01",
+        "feature": "ENSG00000198492.14",
+        "value": 5.2,
+        "disease": "Skin Cutaneous Melanoma",
+        "sample_type": "Primary Tumor"
+      }
+    ],
+    "meta": {
+      "dataset": "toil",
+      "version": "2018-05-08",
+      "backend": "local+metadata",
+      "n_rows": 1,
+      "columns": ["sample_id", "feature", "value", "disease", "sample_type"],
+      "elapsed_ms": 1
+    }
+  }
+}
