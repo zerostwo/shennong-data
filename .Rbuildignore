@@ -1,5 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.github$
-^\.pkgdown$
 ^README\.Rmd$
+^\.agents$
+^\.pkgdown$
+^ShennongData_R_client_architecture_design\.md$

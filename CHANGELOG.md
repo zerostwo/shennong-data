@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- Add an R-native read-only MCP stdio server with six bounded Agent tools for
+  compatibility checks, Resource discovery/inspection, identifier resolution,
+  query planning, and small provenance-aware fetches.
+- Add a repository-local `shennong-data` Agent Skill, MCP installation guide,
+  Resource discovery API, and programmatic API compatibility report.
 - Typed serializable query plans, strict filter/select pushdown, feature
   resolution, bounded multi-feature fetch, and provenance-aware results.
 - Artifact listing/download verification, conversion planning, biological
@@ -17,6 +22,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- Fall back from a gateway-level `/version` `404`/`405` to
+  `/api/v1/public-config` while retaining strict ShennongDB API-v1 negotiation.
+- Refresh the contract matrix and frozen server version against current
+  ShennongDB `0.5.2` source and the local public deployment.
 - Expose metadata-first query, artifact, conversion, and collection APIs while
   preserving the existing Resource handle contract.
 

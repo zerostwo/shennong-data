@@ -19,7 +19,7 @@ test_that("sn_connect negotiates and keeps tokens out of its specification", {
   expect_s3_class(connection, "shennong_connection")
   expect_equal(connection$base_url, "http://example.test")
   expect_equal(connection$api_version, "v1")
-  expect_equal(connection$server_version, "0.1.0")
+  expect_equal(connection$server_version, "0.5.2")
   expect_true("expression" %in% unlist(sn_capabilities(connection)$query_operations))
   expect_false("token" %in% names(connection))
   expect_false(grepl("secret-token", paste(capture.output(str(connection)), collapse = "\n"), fixed = TRUE))

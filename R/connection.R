@@ -39,17 +39,31 @@
 }
 
 .sn_negotiate <- function(connection) {
-  version <- .sn_perform_json(
-    sn_request(connection, .sn_endpoint("version"), auth = "none"),
-    retries = connection$retries,
-    throttle = connection$throttle
-  )
   capabilities <- .sn_perform_json(
     sn_request(connection, .sn_endpoint("capabilities"), auth = "none"),
     retries = connection$retries,
     throttle = connection$throttle
   )$data
-  api_version <- version$api %||% capabilities$api_version
+  version <- tryCatch(
+    .sn_perform_json(
+      sn_request(connection, .sn_endpoint("version"), auth = "none"),
+      retries = connection$retries,
+      throttle = connection$throttle
+    ),
+    shennong_api_error = function(error) {
+      if (error$status %in% c(404L, 405L)) NULL else stop(error)
+    }
+  )
+  public_config <- if (is.null(version)) {
+    .sn_perform_json(
+      sn_request(connection, .sn_endpoint("public_config"), auth = "none"),
+      retries = connection$retries,
+      throttle = connection$throttle
+    )$data
+  } else {
+    list()
+  }
+  api_version <- version$api %||% public_config$api_version %||% capabilities$api_version
   if (!is.character(api_version) || length(api_version) != 1L || !nzchar(api_version)) {
     stop("ShennongDB did not provide an API version.", call. = FALSE)
   }
@@ -57,7 +71,7 @@
     stop("Unsupported ShennongDB API version: ", api_version, call. = FALSE)
   }
   connection$api_version <- api_version
-  connection$server_version <- version$version %||% NULL
+  connection$server_version <- version$version %||% public_config$service_version %||% NULL
   connection$capabilities <- capabilities
   connection
 }

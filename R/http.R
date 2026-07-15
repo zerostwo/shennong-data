@@ -28,6 +28,7 @@ sn_session_token <- function() {
 
 .sn_endpoints <- list(
   version = "/version",
+  public_config = "/api/v1/public-config",
   capabilities = "/api/v1/capabilities",
   resources = "/api/v1/resources",
   agent_manifest = "/.well-known/shennong-agent.json",

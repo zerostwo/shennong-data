@@ -1,0 +1,4 @@
+interface:
+  display_name: "ShennongData Agent Workflows"
+  short_description: "Inspect, plan, and query ShennongDB safely from R"
+  default_prompt: "Use $shennong-data to inspect a ShennongDB Resource, validate its measurement semantics, and prepare a bounded R query."

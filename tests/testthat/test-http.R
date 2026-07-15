@@ -1,8 +1,38 @@
 test_that("endpoint paths have one source of truth", {
   expect_equal(ShennongData:::.sn_endpoint("version"), "/version")
+  expect_equal(ShennongData:::.sn_endpoint("public_config"), "/api/v1/public-config")
   expect_equal(ShennongData:::.sn_endpoint("capabilities"), "/api/v1/capabilities")
   expect_equal(ShennongData:::.sn_endpoint("agent_resource", "toil"), "/api/v1/agent/resources/toil")
   expect_equal(ShennongData:::.sn_endpoint("query"), "/api/v1/query")
+})
+
+test_that("negotiation falls back to public config when the gateway omits version", {
+  connection <- ShennongData:::.sn_new_connection(
+    "http://example.test", "fallback-test", tempdir(), 60, 3L, 4, NULL
+  )
+  seen <- character()
+  testthat::local_mocked_bindings(
+    .sn_perform_json = function(req, retries, throttle) {
+      seen <<- c(seen, req$url)
+      if (endsWith(req$url, "/api/v1/capabilities")) {
+        return(list(data = list(api_version = "v1", resources = c("discover", "inspect"), query_operations = "expression")))
+      }
+      if (endsWith(req$url, "/version")) {
+        stop(structure(
+          list(message = "not found", call = NULL, status = 404L),
+          class = c("shennong_api_error", "error", "condition")
+        ))
+      }
+      list(data = list(api_version = "v1", service_version = "0.5.2"))
+    },
+    .package = "ShennongData"
+  )
+
+  negotiated <- ShennongData:::.sn_negotiate(connection)
+
+  expect_equal(negotiated$api_version, "v1")
+  expect_equal(negotiated$server_version, "0.5.2")
+  expect_true(any(endsWith(seen, "/api/v1/public-config")))
 })
 
 test_that("httr2 requests use JSON and redact bearer tokens", {
