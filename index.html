@@ -84,8 +84,25 @@
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">collect</a></span><span class="op">(</span><span class="va">observations</span><span class="op">)</span></span></code></pre></div>
 <p>Use bounded fetches or artifacts for larger data transfers:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/ShennongData.html">sn_fetch_data</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/ShennongData.html">sn_fetch_data</a></span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  features <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"YTHDF2"</span>, <span class="st">"FTO"</span><span class="op">)</span>,</span>
+<span>  layer <span class="op">=</span> <span class="st">"log2_tpm_plus_0.001"</span>,</span>
+<span>  limit <span class="op">=</span> <span class="fl">100</span></span>
+<span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ShennongData.html">sn_artifacts</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="agent-and-mcp-integration">Agent and MCP integration<a class="anchor" aria-label="anchor" href="#agent-and-mcp-integration"></a>
+</h2>
+<p>Check the live API contract and discover visible Resources from R:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/sn_api_compatibility.html">sn_api_compatibility</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/sn_resources.html">sn_resources</a></span><span class="op">(</span><span class="va">con</span>, search <span class="op">=</span> <span class="st">"bulk"</span><span class="op">)</span></span></code></pre></div>
+<p>The package also includes a read-only stdio MCP server:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="va">SHENNONG_URL</span><span class="op">=</span>http://127.0.0.1:18080 <span class="dt">\</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'ShennongData::sn_mcp_serve()'</span></span></code></pre></div>
+<p>It exposes bounded tools for compatibility checks, Resource discovery and inspection, identifier resolution, query planning, and small data fetches. See <a href="docs/agent-integrations.html"><code>docs/agent-integrations.md</code></a> for client configuration and safety limits.</p>
 <p>See the <a href="https://zerostwo.github.io/shennong-data/">pkgdown site</a> for the complete function reference.</p>
 </div>
 </div>

@@ -49,9 +49,37 @@ Use bounded fetches or artifacts for larger data transfers:
 
 ``` r
 
-sn_fetch_data(x)
+sn_fetch_data(
+  x,
+  features = c("YTHDF2", "FTO"),
+  layer = "log2_tpm_plus_0.001",
+  limit = 100
+)
 sn_artifacts(x)
 ```
+
+## Agent and MCP integration
+
+Check the live API contract and discover visible Resources from R:
+
+``` r
+
+sn_api_compatibility(con)
+sn_resources(con, search = "bulk")
+```
+
+The package also includes a read-only stdio MCP server:
+
+``` sh
+SHENNONG_URL=http://127.0.0.1:18080 \
+  Rscript -e 'ShennongData::sn_mcp_serve()'
+```
+
+It exposes bounded tools for compatibility checks, Resource discovery
+and inspection, identifier resolution, query planning, and small data
+fetches. See
+[`docs/agent-integrations.md`](https://zerostwo.github.io/shennong-data/docs/agent-integrations.md)
+for client configuration and safety limits.
 
 See the [pkgdown site](https://zerostwo.github.io/shennong-data/) for
 the complete function reference.
