@@ -33,6 +33,14 @@ sn_artifact <- function(x, id = NULL, role = NULL, format = NULL) {
   artifacts[[which(keep)]]
 }
 
+.sn_windows_absolute_path <- function(path) {
+  grepl("^[A-Za-z]:[/\\\\]", path)
+}
+
+.sn_normalize_local_path <- function(path) {
+  normalizePath(path.expand(path), winslash = "/", mustWork = TRUE)
+}
+
 .sn_artifact_path <- function(artifact, trusted_local = FALSE,
                               local_root = getOption("ShennongData.trusted_local_root", NULL)) {
   uri <- artifact$local_path %||% artifact$uri %||% ""
@@ -51,21 +59,38 @@ sn_artifact <- function(x, id = NULL, role = NULL, format = NULL) {
     )
   }
 
-  root <- normalizePath(path.expand(local_root), mustWork = TRUE)
+  root <- .sn_normalize_local_path(local_root)
   source <- if (grepl("^file://", uri, ignore.case = TRUE)) {
     decoded <- utils::URLdecode(sub("^file://", "", uri, ignore.case = TRUE))
-    if (!startsWith(decoded, "/")) {
+    if (grepl("^[/\\\\]{2}", decoded)) {
+      stop("Remote file URI hosts are not supported in trusted-local mode.", call. = FALSE)
+    }
+    if (.Platform$OS.type == "windows" &&
+        grepl("^/[A-Za-z]:[/\\\\]", decoded)) {
+      decoded <- substring(decoded, 2L)
+    }
+    if (!startsWith(decoded, "/") && !.sn_windows_absolute_path(decoded)) {
       stop("Remote file URI hosts are not supported in trusted-local mode.", call. = FALSE)
     }
     decoded
-  } else if (startsWith(path.expand(uri), "/")) {
+  } else if (grepl("^[/\\\\]{2}", uri)) {
+    stop("Remote file paths are not supported in trusted-local mode.", call. = FALSE)
+  } else if (startsWith(path.expand(uri), "/") ||
+             .sn_windows_absolute_path(path.expand(uri))) {
     path.expand(uri)
   } else {
     file.path(root, uri)
   }
-  source <- normalizePath(source, mustWork = TRUE)
-  root_prefix <- paste0(root, .Platform$file.sep)
-  if (!identical(source, root) && !startsWith(source, root_prefix)) {
+  source <- .sn_normalize_local_path(source)
+  compare_source <- source
+  compare_root <- root
+  if (.Platform$OS.type == "windows") {
+    compare_source <- tolower(compare_source)
+    compare_root <- tolower(compare_root)
+  }
+  root_prefix <- paste0(sub("/+$", "", compare_root), "/")
+  if (!identical(compare_source, compare_root) &&
+      !startsWith(compare_source, root_prefix)) {
     stop("Artifact local path resolves outside the configured `local_root`.", call. = FALSE)
   }
   if (dir.exists(source)) {

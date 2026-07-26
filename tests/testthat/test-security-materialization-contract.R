@@ -55,7 +55,23 @@ test_that("local Artifact paths require trusted-local mode and a confined root",
       trusted_local = TRUE,
       local_root = root
     ),
-    normalizePath(inside)
+    normalizePath(inside, winslash = "/")
+  )
+  expect_error(
+    ShennongData:::.sn_artifact_path(
+      list(uri = "file://remote.example.test/share/inside.tsv"),
+      trusted_local = TRUE,
+      local_root = root
+    ),
+    "Remote file URI hosts"
+  )
+  expect_error(
+    ShennongData:::.sn_artifact_path(
+      list(uri = "\\\\remote.example.test\\share\\inside.tsv"),
+      trusted_local = TRUE,
+      local_root = root
+    ),
+    "Remote file paths"
   )
   expect_error(
     ShennongData:::.sn_artifact_path(
