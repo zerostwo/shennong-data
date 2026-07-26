@@ -28,6 +28,10 @@ All six tools are read-only:
 
 Use this order: `check_compatibility` → `list_resources` → `inspect_resource` → `resolve_features` → `plan_query` → `fetch_data`.
 
+If `check_compatibility` reports that the server requires Project scope, stop
+before `list_resources`/inspection and set `SHENNONG_PROJECT_ID` to the intended
+canonical UUID. A projectless public catalog is discovery-only on that gateway.
+
 The server uses MCP protocol revision `2025-11-25` and supports compatible earlier revisions. Stdio messages are newline-delimited JSON-RPC. Standard output contains MCP messages only; credentials come from the parent environment.
 
 Production clients should point `SHENNONG_URL` at the Shennong OS/gateway and

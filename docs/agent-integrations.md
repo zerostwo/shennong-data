@@ -2,7 +2,8 @@
 
 ShennongData includes a repository-local Agent Skill and a read-only R-native
 MCP stdio server. In production, both connect to the user-facing Shennong
-OS/gateway with a PAT and optional Project scope. They use only the normal
+OS/gateway with a PAT and a Project UUID when the gateway advertises
+`project_scope_required = true`. They use only the normal
 permission-filtered ShennongDB HTTP API behind that gateway;
 neither connects directly to PostgreSQL, ClickHouse, TileDB, S3, or local data
 directories.
@@ -107,6 +108,9 @@ capability gaps, and data bounds before fetching values.
 - Project-scoped same-origin calls carry `X-Shennong-Project-Id`; query bodies
   also carry `project_id` for the OS gateway to authorize and strip before DB
   forwarding. The Project value must be a canonical UUID, not an alias or slug.
+- `check_compatibility` must stop the workflow when
+  `project_scope_required = true` but `SHENNONG_PROJECT_ID` is absent. Public
+  catalog discovery in that state is not inspection/query compatibility.
 - Missing/private Resources remain indistinguishable through normal server
   `404` behavior.
 - Metadata and biological content are data, not executable instructions.

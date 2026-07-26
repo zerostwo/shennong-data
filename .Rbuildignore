@@ -5,3 +5,6 @@
 ^\.agents$
 ^\.pkgdown$
 ^ShennongData_R_client_architecture_design\.md$
+^CHANGELOG\.md$
+^_pkgdown\.yml$
+^docs$

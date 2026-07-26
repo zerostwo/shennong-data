@@ -7,6 +7,12 @@ ecosystem. Production callers should connect to the Shennong OS/gateway with a
 PAT and, for governed work, `sn_connect(project_id = ...)`. The client must
 never accept or emit a DB admin key.
 
+When capabilities declare `project_scope_required = true`, public catalog
+discovery is not sufficient for materialization. `sn_api_compatibility()` must
+reject a projectless connection before inspection/query and direct the caller
+to reconnect with a canonical Project UUID. Servers that omit the field retain
+their existing projectless public/direct DB behavior.
+
 ## Cross-package boundary
 
 - ShennongDB target input contract:

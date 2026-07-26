@@ -50,16 +50,25 @@ sn_resources <- function(connection = sn_connection(), search = NULL) {
   records
 }
 
-#' Check ShennongData compatibility with a ShennongDB instance
+#' Check ShennongData compatibility with a Shennong API
 #'
-#' @param connection A negotiated ShennongDB connection.
+#' The compatibility report honors a server capability declaration of
+#' `project_scope_required = TRUE`. In that case, a connection without
+#' `project_id` is incompatible for inspection and query even when public
+#' Resource discovery is available. Servers that omit the capability, including
+#' compatible public/direct ShennongDB endpoints, retain projectless behavior.
+#'
+#' @param connection A negotiated Shennong OS/gateway or ShennongDB connection.
 #' @param probe_discovery Whether to verify the permission-filtered Agent manifest.
-#' @return A structured compatibility report.
+#' @return A structured compatibility report, including Project requirements
+#'   and actionable incompatibility reasons.
 #' @export
 sn_api_compatibility <- function(connection = sn_connection(), probe_discovery = TRUE) {
   .sn_check_connection(connection)
   capabilities <- sn_capabilities(connection)
   features <- sn_server_features(connection)
+  project_required <- isTRUE(capabilities$project_scope_required)
+  project_supplied <- !is.null(connection$project_id)
   discovery <- if (isTRUE(probe_discovery)) {
     tryCatch(sn_resources(connection), error = identity)
   } else {
@@ -71,6 +80,7 @@ sn_api_compatibility <- function(connection = sn_connection(), probe_discovery =
     resource_discovery = discovery_ok,
     resource_inspection = "inspect" %in% (capabilities$resources %||% character()),
     expression_query = "expression" %in% (capabilities$query_operations %||% character()),
+    project_scope = !project_required || project_supplied,
     batch_query = isTRUE(features$batch_features),
     metadata_views = isTRUE(features$metadata_views),
     axes = isTRUE(features$axes),
@@ -78,14 +88,71 @@ sn_api_compatibility <- function(connection = sn_connection(), probe_discovery =
     structured_errors = isTRUE(features$structured_errors),
     jsonl_streaming = isTRUE(features$artifact_streaming)
   )
+  core_checks <- c(
+    "api_v1",
+    "resource_discovery",
+    "resource_inspection",
+    "expression_query",
+    "project_scope"
+  )
+  incompatibility_reasons <- character()
+  if (!isTRUE(checks[["api_v1"]])) {
+    incompatibility_reasons <- c(
+      incompatibility_reasons,
+      "The server did not negotiate Shennong API v1."
+    )
+  }
+  if (!isTRUE(checks[["resource_discovery"]])) {
+    incompatibility_reasons <- c(
+      incompatibility_reasons,
+      paste0(
+        "Permission-filtered Resource discovery failed",
+        if (inherits(discovery, "error")) {
+          paste0(": ", conditionMessage(discovery))
+        } else {
+          "."
+        }
+      )
+    )
+  }
+  if (!isTRUE(checks[["resource_inspection"]])) {
+    incompatibility_reasons <- c(
+      incompatibility_reasons,
+      "The server did not advertise Resource inspection support."
+    )
+  }
+  if (!isTRUE(checks[["expression_query"]])) {
+    incompatibility_reasons <- c(
+      incompatibility_reasons,
+      "The server did not advertise the `expression` query operation."
+    )
+  }
+  if (!isTRUE(checks[["project_scope"]])) {
+    incompatibility_reasons <- c(
+      incompatibility_reasons,
+      paste0(
+        "This server requires a Shennong Project for Resource inspection and ",
+        "queries. Reconnect with `sn_connect(..., project_id = ",
+        "\"<canonical-project-uuid>\")`; public discovery alone is not full ",
+        "API compatibility."
+      )
+    )
+  }
   structure(
     list(
-      compatible = all(checks[c("api_v1", "resource_discovery", "resource_inspection", "expression_query")]),
+      compatible = all(checks[core_checks]),
       client = list(package = "ShennongData", version = as.character(utils::packageVersion("ShennongData"))),
       server = list(url = connection$base_url, api_version = connection$api_version, version = connection$server_version),
       checks = as.list(checks),
+      project_requirement = list(
+        required = project_required,
+        supplied = project_supplied,
+        satisfied = isTRUE(checks[["project_scope"]]),
+        public_discovery = isTRUE(capabilities$public_discovery)
+      ),
       optional = list(arrow_streaming = isTRUE(features$arrow)),
-      discovery_error = if (inherits(discovery, "error")) conditionMessage(discovery) else NULL
+      discovery_error = if (inherits(discovery, "error")) conditionMessage(discovery) else NULL,
+      incompatibility_reasons = incompatibility_reasons
     ),
     class = "shennong_api_compatibility"
   )

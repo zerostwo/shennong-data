@@ -33,6 +33,70 @@ test_that("Agent Resource discovery is permission-filtered and searchable", {
   expect_equal(attr(resources, "shennong_manifest_schema"), "1.2")
 })
 
+test_that("compatibility fails fast when the server requires a Project", {
+  capabilities <- list(
+    api_version = "v1",
+    public_discovery = TRUE,
+    project_scope_required = TRUE,
+    resources = c("discover", "inspect"),
+    query_operations = "expression"
+  )
+  projectless <- ShennongData:::.sn_new_connection(
+    "http://example.test", "projectless", tempdir(), 60, 3L, 4, NULL
+  )
+  projectless$api_version <- "v1"
+  projectless$capabilities <- capabilities
+
+  report <- sn_api_compatibility(projectless, probe_discovery = FALSE)
+
+  expect_false(report$compatible)
+  expect_false(report$checks$project_scope)
+  expect_identical(
+    report$project_requirement,
+    list(
+      required = TRUE,
+      supplied = FALSE,
+      satisfied = FALSE,
+      public_discovery = TRUE
+    )
+  )
+  expect_length(report$incompatibility_reasons, 1L)
+  expect_match(report$incompatibility_reasons, "sn_connect")
+  expect_match(report$incompatibility_reasons, "project_id")
+
+  governed <- ShennongData:::.sn_new_connection(
+    "http://example.test", "governed", tempdir(), 60, 3L, 4, NULL,
+    "550e8400-e29b-41d4-a716-446655440000"
+  )
+  governed$api_version <- "v1"
+  governed$capabilities <- capabilities
+  governed_report <- sn_api_compatibility(governed, probe_discovery = FALSE)
+  expect_true(governed_report$compatible)
+  expect_true(governed_report$checks$project_scope)
+  expect_length(governed_report$incompatibility_reasons, 0L)
+})
+
+test_that("direct DB capabilities retain projectless compatibility", {
+  projectless <- ShennongData:::.sn_new_connection(
+    "http://example.test", "direct-db", tempdir(), 60, 3L, 4, NULL
+  )
+  projectless$api_version <- "v1"
+  projectless$capabilities <- list(
+    api_version = "v1",
+    resources = c("discover", "inspect"),
+    query_operations = "expression"
+  )
+
+  report <- sn_api_compatibility(projectless, probe_discovery = FALSE)
+
+  expect_true(report$compatible)
+  expect_true(report$checks$project_scope)
+  expect_false(report$project_requirement$required)
+  expect_false(report$project_requirement$supplied)
+  expect_true(report$project_requirement$satisfied)
+  expect_length(report$incompatibility_reasons, 0L)
+})
+
 test_that("MCP advertises six bounded read-only tools", {
   tools <- ShennongData:::.sn_mcp_tools()
   names <- vapply(tools, `[[`, "", "name")

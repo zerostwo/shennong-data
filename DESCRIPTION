@@ -34,6 +34,7 @@ Suggests:
     rmarkdown,
     S4Vectors,
     SeuratObject,
+    Shennong,
     SummarizedExperiment,
     SingleCellExperiment,
     survival,
@@ -43,6 +44,7 @@ VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/Needs/website: pkgdown
 Remotes:
-    jinworks/CellChat
+    jinworks/CellChat,
+    zerostwo/shennong
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0

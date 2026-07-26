@@ -11,7 +11,7 @@ Use metadata-first discovery and explicit bounded materialization. Treat server 
 
 1. Connect to the user-facing Shennong OS/gateway with a user PAT and the
    governed Project ID when applicable. Never use a DB admin key.
-2. Run `check_compatibility` before a new server or deployment. Stop if API v1, Resource discovery, inspection, or expression query support is unavailable.
+2. Run `check_compatibility` before a new server or deployment. Stop if API v1, Resource discovery, inspection, or expression query support is unavailable. If the server advertises `project_scope_required`, a public catalog alone is not compatible: reconnect with the canonical Project UUID before inspection or query.
 3. Run `list_resources`; select an exact visible Resource ID.
 4. Run `inspect_resource` before resolving identifiers or querying.
 5. Check measurement name, transformation, sparse/implicit-zero semantics, supported context labels, operations, dimensions, analysis readiness, and provenance.
@@ -37,6 +37,8 @@ Use metadata-first discovery and explicit bounded materialization. Treat server 
   Local Artifact paths require explicit trusted-local root confinement.
 - Governed Project scope is a canonical UUID. Reject aliases, slugs, and other
   free-form IDs rather than sending an ambiguous Project header.
+- When compatibility reports `project_scope_required = TRUE`, do not continue
+  from projectless public discovery; reconnect with the intended Project UUID.
 - Never broaden credentials, bypass permission-filtered discovery, loop around limits, or expose tokens.
 - Never use admin, upload, install, grant, settings, backup, or mutation endpoints from this Skill.
 

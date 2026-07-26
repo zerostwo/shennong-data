@@ -30,8 +30,14 @@ DB administrative endpoint. `sn_connect(project_id = ...)` sends
 `project_id` in query/batch/stream bodies as a compatibility bridge. The OS
 authorizes the Project and strips the body field before forwarding to a DB
 deployment that does not yet accept it. With `project_id = NULL`, public/direct
-DB behavior remains unchanged. Non-`NULL` Project scope is UUID-only and is
-normalized to lowercase canonical `8-4-4-4-12` form; aliases or slugs fail
+DB behavior remains unchanged unless the server advertises
+`project_scope_required = true`. That capability means projectless access
+stops at public Resource discovery and is not sufficient for inspection,
+resolution, querying, or Artifact download. `sn_api_compatibility()` reports
+such a connection as incompatible and tells the caller to reconnect with a
+Project UUID. Servers that omit the field or advertise it as false retain the
+existing public/direct DB behavior. Non-`NULL` Project scope is UUID-only and
+is normalized to lowercase canonical `8-4-4-4-12` form; aliases or slugs fail
 before network access.
 
 The request models match the current Rust types:
@@ -78,7 +84,9 @@ Fixtures in `inst/extdata/contract-fixtures/` freeze representative v1
 responses for server version, capabilities, Resource inspection, identifier
 resolution, and expression queries. Unit tests additionally cover gateway
 fallback, structured errors, cursor paging, batch/axis capability gates, and
-MCP bounds.
+MCP bounds. Compatibility tests also freeze both sides of the Project
+requirement: an OS-style `project_scope_required = true` report fails without
+a Project, while an older/direct DB capability document remains projectless.
 
 For a live instance, run:
 

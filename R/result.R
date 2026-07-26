@@ -543,8 +543,7 @@ sn_collect_metadata <- function(x, fields = NULL, limit = NULL, cursor = NULL) {
   .sn_as_result(data, x, plan, provenance, partial = !is.null(meta$next_cursor))
 }
 
-#' @exportS3Method
-collect.ShennongData <- function(x, ..., shape = "long", allow_large = FALSE) {
+.sn_collect_shennong_data <- function(x, ..., shape = "long", allow_large = FALSE) {
   if (identical(x@view, "observations") && isTRUE(x@connection$capabilities$metadata_views) && is.null(list(...)$features)) return(sn_collect_metadata(x, ...))
   sn_fetch_data(x, shape = shape, allow_large = allow_large, ...)
 }

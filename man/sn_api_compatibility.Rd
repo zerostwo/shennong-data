@@ -2,18 +2,23 @@
 % Please edit documentation in R/agent.R
 \name{sn_api_compatibility}
 \alias{sn_api_compatibility}
-\title{Check ShennongData compatibility with a ShennongDB instance}
+\title{Check ShennongData compatibility with a Shennong API}
 \usage{
 sn_api_compatibility(connection = sn_connection(), probe_discovery = TRUE)
 }
 \arguments{
-\item{connection}{A negotiated ShennongDB connection.}
+\item{connection}{A negotiated Shennong OS/gateway or ShennongDB connection.}
 
 \item{probe_discovery}{Whether to verify the permission-filtered Agent manifest.}
 }
 \value{
-A structured compatibility report.
+A structured compatibility report, including Project requirements
+and actionable incompatibility reasons.
 }
 \description{
-Check ShennongData compatibility with a ShennongDB instance
+The compatibility report honors a server capability declaration of
+\code{project_scope_required = TRUE}. In that case, a connection without
+\code{project_id} is incompatible for inspection and query even when public
+Resource discovery is available. Servers that omit the capability, including
+compatible public/direct ShennongDB endpoints, retain projectless behavior.
 }
