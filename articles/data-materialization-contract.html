@@ -68,13 +68,18 @@ then explicitly materializes a bounded query or Artifact.</p>
 <code class="sourceCode R"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sn_connect.html">sn_connect</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_URL"</span>, <span class="st">"https://your-shennong-gateway.example"</span><span class="op">)</span>,</span>
 <span>  token <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_TOKEN"</span><span class="op">)</span>,</span>
-<span>  project_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_PROJECT_ID"</span>, <span class="st">"project-uuid"</span><span class="op">)</span></span>
+<span>  project_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span></span>
+<span>    <span class="st">"SHENNONG_PROJECT_ID"</span>,</span>
+<span>    <span class="st">"550e8400-e29b-41d4-a716-446655440000"</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>With a Project scope, authenticated same-origin requests carry
 <code>X-Shennong-Project-Id</code>, and query bodies include
 <code>project_id</code> as a gateway compatibility bridge. A direct
 DB/public connection remains compatible when
-<code>project_id = NULL</code>.</p>
+<code>project_id = NULL</code>. A governed <code>project_id</code> must
+be a canonical UUID; aliases and slugs are rejected before network
+access.</p>
 <div class="section level2">
 <h2 id="databundle-provenance">DataBundle provenance<a class="anchor" aria-label="anchor" href="#databundle-provenance"></a>
 </h2>

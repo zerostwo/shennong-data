@@ -28,7 +28,8 @@ sn_connect(
 
 - token:
 
-  Session-only bearer token; it is never stored in the returned object.
+  Session or personal access bearer token; it is never stored in the
+  returned object.
 
 - profile:
 
@@ -36,8 +37,8 @@ sn_connect(
 
 - project_id:
 
-  Optional Shennong project UUID or stable identifier used to scope
-  governed gateway requests.
+  Optional canonical Shennong Project UUID used to scope governed
+  gateway requests. Non-UUID aliases and slugs are rejected.
 
 - cache_dir:
 

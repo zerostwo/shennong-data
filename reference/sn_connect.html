@@ -64,7 +64,8 @@ direct ShennongDB URL remains supported.</p></dd>
 
 
 <dt id="arg-token">token<a class="anchor" aria-label="anchor" href="#arg-token"></a></dt>
-<dd><p>Session-only bearer token; it is never stored in the returned object.</p></dd>
+<dd><p>Session or personal access bearer token; it is never stored in
+the returned object.</p></dd>
 
 
 <dt id="arg-profile">profile<a class="anchor" aria-label="anchor" href="#arg-profile"></a></dt>
@@ -72,8 +73,8 @@ direct ShennongDB URL remains supported.</p></dd>
 
 
 <dt id="arg-project-id">project_id<a class="anchor" aria-label="anchor" href="#arg-project-id"></a></dt>
-<dd><p>Optional Shennong project UUID or stable identifier used
-to scope governed gateway requests.</p></dd>
+<dd><p>Optional canonical Shennong Project UUID used to scope
+governed gateway requests. Non-UUID aliases and slugs are rejected.</p></dd>
 
 
 <dt id="arg-cache-dir">cache_dir<a class="anchor" aria-label="anchor" href="#arg-cache-dir"></a></dt>

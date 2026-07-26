@@ -10,14 +10,18 @@ then explicitly materializes a bounded query or Artifact.
 con <- sn_connect(
   Sys.getenv("SHENNONG_URL", "https://your-shennong-gateway.example"),
   token = Sys.getenv("SHENNONG_TOKEN"),
-  project_id = Sys.getenv("SHENNONG_PROJECT_ID", "project-uuid")
+  project_id = Sys.getenv(
+    "SHENNONG_PROJECT_ID",
+    "550e8400-e29b-41d4-a716-446655440000"
+  )
 )
 ```
 
 With a Project scope, authenticated same-origin requests carry
 `X-Shennong-Project-Id`, and query bodies include `project_id` as a
 gateway compatibility bridge. A direct DB/public connection remains
-compatible when `project_id = NULL`.
+compatible when `project_id = NULL`. A governed `project_id` must be a
+canonical UUID; aliases and slugs are rejected before network access.
 
 ## DataBundle provenance
 

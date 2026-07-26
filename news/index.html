@@ -38,6 +38,7 @@
 <ul><li>Materialized results now target <code>shennong.dev/data-bundle/v1</code> with explicit client-projection, completeness, axis, missing-feature, orientation, and structural-zero provenance.</li>
 <li>
 <code>sn_connect(project_id = ...)</code> supports governed Shennong OS/gateway access with a user PAT. Project scope is added only to authenticated same-origin requests and query bodies; foreign Artifact redirects receive neither bearer nor Project headers.</li>
+<li>Non-<code>NULL</code> <code>project_id</code> values must now be canonical UUIDs and are normalized to lowercase before use. Former free-form Project aliases are rejected locally so the client matches the OS authorization header contract.</li>
 <li>Sparse output now requires <code>implicit_zero = TRUE</code>, retrieves declared observation axes when available, uses direct sparse construction, and drops explicit zero entries.</li>
 <li>Local Artifact paths require explicit trusted-local mode and confinement below a configured root.</li>
 <li>SummarizedExperiment and Seurat conversions preserve DataBundle provenance and reject partial inputs by default.</li>

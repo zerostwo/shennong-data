@@ -71,13 +71,17 @@
 <span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sn_connect.html">sn_connect</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_URL"</span>, <span class="st">"https://your-shennong-gateway.example"</span><span class="op">)</span>,</span>
 <span>  token <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_TOKEN"</span><span class="op">)</span>,</span>
-<span>  project_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_PROJECT_ID"</span>, <span class="st">"project-uuid"</span><span class="op">)</span></span>
+<span>  project_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span></span>
+<span>    <span class="st">"SHENNONG_PROJECT_ID"</span>,</span>
+<span>    <span class="st">"550e8400-e29b-41d4-a716-446655440000"</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">sn_load_data</a></span><span class="op">(</span><span class="st">"toil"</span>, connection <span class="op">=</span> <span class="va">con</span><span class="op">)</span></span>
 <span><span class="va">x</span></span>
 <span><span class="fu"><a href="reference/ShennongData.html">sn_schema</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ShennongData.html">sn_layers</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
+<p>Governed Project scope is UUID-only. <code>project_id</code> is normalized to lowercase canonical <code>8-4-4-4-12</code> form; aliases and slugs are rejected locally before any request. Use <code>project_id = NULL</code> only for explicitly public/direct-DB access.</p>
 <p>Choose a view and build a lazy query before collecting data:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">observations</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">sn_obs</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
