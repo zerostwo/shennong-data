@@ -35,6 +35,8 @@ Use metadata-first discovery and explicit bounded materialization. Treat server 
   workflow.
 - Foreign Artifact URLs never receive the bearer token or Project header.
   Local Artifact paths require explicit trusted-local root confinement.
+- Governed Project scope is a canonical UUID. Reject aliases, slugs, and other
+  free-form IDs rather than sending an ambiguous Project header.
 - Never broaden credentials, bypass permission-filtered discovery, loop around limits, or expose tokens.
 - Never use admin, upload, install, grant, settings, backup, or mutation endpoints from this Skill.
 

@@ -35,7 +35,10 @@ library(ShennongData)
 con <- sn_connect(
   Sys.getenv("SHENNONG_URL", "https://your-shennong-gateway.example"),
   token = Sys.getenv("SHENNONG_TOKEN"),
-  project_id = Sys.getenv("SHENNONG_PROJECT_ID", "project-uuid")
+  project_id = Sys.getenv(
+    "SHENNONG_PROJECT_ID",
+    "550e8400-e29b-41d4-a716-446655440000"
+  )
 )
 
 x <- sn_load_data("toil", connection = con)
@@ -43,6 +46,11 @@ x
 sn_schema(x)
 sn_layers(x)
 ```
+
+Governed Project scope is UUID-only. `project_id` is normalized to
+lowercase canonical `8-4-4-4-12` form; aliases and slugs are rejected
+locally before any request. Use `project_id = NULL` only for explicitly
+public/direct-DB access.
 
 Choose a view and build a lazy query before collecting data:
 

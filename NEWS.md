@@ -7,6 +7,9 @@
   with a user PAT. Project scope is added only to authenticated same-origin
   requests and query bodies; foreign Artifact redirects receive neither
   bearer nor Project headers.
+- Non-`NULL` `project_id` values must now be canonical UUIDs and are normalized
+  to lowercase before use. Former free-form Project aliases are rejected
+  locally so the client matches the OS authorization header contract.
 - Sparse output now requires `implicit_zero = TRUE`, retrieves declared
   observation axes when available, uses direct sparse construction, and drops
   explicit zero entries.

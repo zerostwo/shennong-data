@@ -59,4 +59,5 @@ result with `Shennong::sn_validate_result()`.
 With `project_id` configured, authenticated same-origin calls carry
 `X-Shennong-Project-Id`. Query, batch, and stream bodies also contain
 `project_id` for the OS gateway to authorize and remove before DB forwarding.
-With no Project configured, no header or body field is added.
+The configured value must be a canonical Project UUID; aliases and slugs are
+rejected locally. With no Project configured, no header or body field is added.

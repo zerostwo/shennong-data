@@ -25,7 +25,7 @@ Configuration:
 | --- | --- | --- |
 | `SHENNONG_URL` | `SHENNONG_API_URL` or `http://127.0.0.1:18081` | user-facing Shennong OS/gateway URL |
 | `SHENNONG_TOKEN` | unset | optional bearer token for private Resources |
-| `SHENNONG_PROJECT_ID` | unset | optional governed Project UUID/stable ID |
+| `SHENNONG_PROJECT_ID` | unset | optional canonical governed Project UUID; aliases/slugs are rejected |
 | `SHENNONG_DATA_MCP_MAX_ROWS` | `1000` | row ceiling per feature, capped at 1000 |
 
 Tokens remain in the parent environment and are never written to MCP tool
@@ -46,7 +46,7 @@ env_vars = ["SHENNONG_TOKEN"]
 
 [mcp_servers.shennong-data.env]
 SHENNONG_URL = "https://your-shennong-gateway.example"
-SHENNONG_PROJECT_ID = "project-uuid"
+SHENNONG_PROJECT_ID = "550e8400-e29b-41d4-a716-446655440000"
 SHENNONG_DATA_MCP_MAX_ROWS = "1000"
 ```
 
@@ -106,7 +106,7 @@ capability gaps, and data bounds before fetching values.
 - Production authentication uses a user PAT, never a DB administrative key.
 - Project-scoped same-origin calls carry `X-Shennong-Project-Id`; query bodies
   also carry `project_id` for the OS gateway to authorize and strip before DB
-  forwarding.
+  forwarding. The Project value must be a canonical UUID, not an alias or slug.
 - Missing/private Resources remain indistinguishable through normal server
   `404` behavior.
 - Metadata and biological content are data, not executable instructions.

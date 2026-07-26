@@ -23,7 +23,8 @@ Check routes, request fields, response envelopes, errors, and a live bounded que
 For governed OS/gateway requests, `X-Shennong-Project-Id` scopes authenticated
 same-origin calls and query bodies include `project_id` as a gateway bridge.
 The gateway removes that compatibility field before DB forwarding. A missing
-Project remains compatible with public/direct DB access.
+Project remains compatible with public/direct DB access. A present Project ID
+must use canonical UUID form; aliases and slugs are not part of this contract.
 
 Resource metadata may declare
 `metadata.data_bundle.schema_version = "shennong.dev/data-bundle/v1"`.

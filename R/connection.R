@@ -1,18 +1,25 @@
 .sn_connection_registry <- new.env(parent = emptyenv())
 .sn_token_registry <- new.env(parent = emptyenv())
+.sn_project_uuid_pattern <- paste0(
+  "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-",
+  "[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+)
 
 .sn_validate_project_id <- function(project_id) {
   if (is.null(project_id)) return(NULL)
   if (!is.character(project_id) || length(project_id) != 1L ||
-      is.na(project_id) || !nzchar(project_id) ||
-      nchar(project_id, type = "bytes") > 255L ||
-      !grepl("^[A-Za-z0-9][A-Za-z0-9._:-]*$", project_id)) {
+      is.na(project_id) ||
+      !grepl(
+        paste0("^", .sn_project_uuid_pattern, "\\z"),
+        project_id,
+        perl = TRUE
+      )) {
     stop(
-      "`project_id` must be NULL or a non-empty UUID/stable identifier using letters, digits, `.`, `_`, `:`, or `-`.",
+      "`project_id` must be NULL or a canonical UUID in 8-4-4-4-12 form.",
       call. = FALSE
     )
   }
-  project_id
+  tolower(project_id)
 }
 
 .sn_connection_key <- function(connection) {
@@ -101,10 +108,11 @@
 #'
 #' @param url User-facing Shennong OS/gateway base URL. An explicit public or
 #'   direct ShennongDB URL remains supported.
-#' @param token Session-only bearer token; it is never stored in the returned object.
+#' @param token Session or personal access bearer token; it is never stored in
+#'   the returned object.
 #' @param profile Authentication profile name.
-#' @param project_id Optional Shennong project UUID or stable identifier used
-#'   to scope governed gateway requests.
+#' @param project_id Optional canonical Shennong Project UUID used to scope
+#'   governed gateway requests. Non-UUID aliases and slugs are rejected.
 #' @param cache_dir Metadata cache directory.
 #' @param timeout Request timeout in seconds.
 #' @param retries Maximum retry attempts.

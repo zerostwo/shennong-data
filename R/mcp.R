@@ -28,7 +28,13 @@
 
 .sn_mcp_tools <- function() {
   url <- .sn_mcp_string("Optional Shennong OS/gateway base URL; defaults to SHENNONG_URL, SHENNONG_API_URL, or the package default.")
-  project_id <- .sn_mcp_string("Optional Shennong project UUID or stable identifier for governed requests.")
+  project_id <- list(
+    type = "string",
+    minLength = 36L,
+    maxLength = 36L,
+    pattern = paste0("^", .sn_project_uuid_pattern, "$"),
+    description = "Optional canonical Shennong Project UUID for governed requests; aliases and slugs are rejected."
+  )
   resource <- .sn_mcp_string("Exact ShennongDB Resource identifier returned by list_resources.")
   features <- .sn_mcp_strings("Gene symbols or stable/versioned feature identifiers; at most 20.")
   context <- list(type = "object", description = "Exact Resource-declared context labels.", additionalProperties = TRUE)

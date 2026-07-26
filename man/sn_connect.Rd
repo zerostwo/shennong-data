@@ -21,12 +21,13 @@ sn_connect(
 \item{url}{User-facing Shennong OS/gateway base URL. An explicit public or
 direct ShennongDB URL remains supported.}
 
-\item{token}{Session-only bearer token; it is never stored in the returned object.}
+\item{token}{Session or personal access bearer token; it is never stored in
+the returned object.}
 
 \item{profile}{Authentication profile name.}
 
-\item{project_id}{Optional Shennong project UUID or stable identifier used
-to scope governed gateway requests.}
+\item{project_id}{Optional canonical Shennong Project UUID used to scope
+governed gateway requests. Non-UUID aliases and slugs are rejected.}
 
 \item{cache_dir}{Metadata cache directory.}
 

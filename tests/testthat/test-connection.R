@@ -5,6 +5,8 @@
   )
 }
 
+.connection_project_uuid <- "550e8400-e29b-41d4-a716-446655440000"
+
 test_that("sn_connect negotiates and keeps tokens out of its specification", {
   testthat::local_mocked_bindings(
     .sn_perform_json = function(req, retries, throttle) {
@@ -17,7 +19,7 @@ test_that("sn_connect negotiates and keeps tokens out of its specification", {
   connection <- sn_connect(
     "http://example.test/",
     token = "secret-token",
-    project_id = "project-123",
+    project_id = toupper(.connection_project_uuid),
     set_default = FALSE
   )
 
@@ -25,21 +27,29 @@ test_that("sn_connect negotiates and keeps tokens out of its specification", {
   expect_equal(connection$base_url, "http://example.test")
   expect_equal(connection$api_version, "v1")
   expect_equal(connection$server_version, "1.0.0")
-  expect_identical(connection$project_id, "project-123")
+  expect_identical(connection$project_id, .connection_project_uuid)
   expect_true("expression" %in% unlist(sn_capabilities(connection)$query_operations))
   expect_false("token" %in% names(connection))
   expect_false(grepl("secret-token", paste(capture.output(str(connection)), collapse = "\n"), fixed = TRUE))
 })
 
 test_that("project identifiers are optional and validated before negotiation", {
-  expect_error(
-    sn_connect(
-      "http://example.test",
-      project_id = "project id with spaces",
-      set_default = FALSE
-    ),
-    "project_id"
+  invalid <- c(
+    "project-123",
+    "project id with spaces",
+    "550e8400e29b41d4a716446655440000",
+    paste0(.connection_project_uuid, "/extra")
   )
+  for (project_id in invalid) {
+    expect_error(
+      sn_connect(
+        "http://example.test",
+        project_id = project_id,
+        set_default = FALSE
+      ),
+      "canonical UUID"
+    )
+  }
   connection <- ShennongData:::.sn_new_connection(
     "http://example.test",
     "no-project",

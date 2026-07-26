@@ -48,6 +48,15 @@ test_that("MCP advertises six bounded read-only tools", {
   expect_equal(fetch$inputSchema$properties$limit$maximum, 1000L)
   expect_equal(fetch$inputSchema$properties$features$maxItems, 20L)
   expect_equal(inspect$inputSchema$required, list("resource"))
+  expect_equal(inspect$inputSchema$properties$project_id$minLength, 36L)
+  expect_match(
+    inspect$inputSchema$properties$project_id$pattern,
+    "\\[0-9A-Fa-f\\]"
+  )
+  expect_error(
+    ShennongData:::.sn_mcp_connection(list(project_id = "project-123")),
+    "canonical UUID"
+  )
 })
 
 test_that("MCP initialize and tool listing follow JSON-RPC", {

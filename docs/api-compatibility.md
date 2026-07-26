@@ -30,7 +30,9 @@ DB administrative endpoint. `sn_connect(project_id = ...)` sends
 `project_id` in query/batch/stream bodies as a compatibility bridge. The OS
 authorizes the Project and strips the body field before forwarding to a DB
 deployment that does not yet accept it. With `project_id = NULL`, public/direct
-DB behavior remains unchanged.
+DB behavior remains unchanged. Non-`NULL` Project scope is UUID-only and is
+normalized to lowercase canonical `8-4-4-4-12` form; aliases or slugs fail
+before network access.
 
 The request models match the current Rust types:
 
@@ -85,7 +87,7 @@ library(ShennongData)
 con <- sn_connect(
   "https://your-shennong-gateway.example",
   token = Sys.getenv("SHENNONG_TOKEN"),
-  project_id = "project-uuid"
+  project_id = "550e8400-e29b-41d4-a716-446655440000"
 )
 sn_api_compatibility(con)
 sn_resources(con)

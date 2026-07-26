@@ -12,7 +12,7 @@ Environment:
 | --- | --- | --- |
 | `SHENNONG_URL` | `http://127.0.0.1:18081` | Shennong OS/gateway base URL |
 | `SHENNONG_TOKEN` | unset | optional bearer token |
-| `SHENNONG_PROJECT_ID` | unset | optional governed Project UUID/stable ID |
+| `SHENNONG_PROJECT_ID` | unset | optional canonical governed Project UUID; aliases/slugs are rejected |
 | `SHENNONG_DATA_MCP_MAX_ROWS` | `1000` | per-feature row ceiling, never above 1000 |
 
 All six tools are read-only:

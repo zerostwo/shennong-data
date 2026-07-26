@@ -5,6 +5,8 @@
   )
 }
 
+.contract_project_uuid <- "550e8400-e29b-41d4-a716-446655440000"
+
 .contract_connection <- function(profile = "contract", project_id = NULL) {
   ShennongData:::.sn_new_connection(
     "http://example.test",
@@ -68,7 +70,7 @@ test_that("local Artifact paths require trusted-local mode and a confined root",
 test_that("Artifact requests authenticate only to the connection origin", {
   connection <- .contract_connection(
     "artifact-auth",
-    project_id = "project-123"
+    project_id = .contract_project_uuid
   )
   key <- ShennongData:::.sn_connection_key(connection)
   assign(key, "secret-token", envir = ShennongData:::.sn_token_registry)
@@ -93,7 +95,7 @@ test_that("Artifact requests authenticate only to the connection origin", {
   expect_null(foreign$headers$Authorization)
   expect_identical(
     same_origin$headers[["X-Shennong-Project-Id"]],
-    "project-123"
+    .contract_project_uuid
   )
   expect_null(foreign$headers[["X-Shennong-Project-Id"]])
   expect_error(
@@ -122,7 +124,7 @@ test_that("Artifact requests authenticate only to the connection origin", {
 test_that("Artifact redirects are followed without forwarding credentials", {
   connection <- .contract_connection(
     "artifact-redirect",
-    project_id = "project-123"
+    project_id = .contract_project_uuid
   )
   key <- ShennongData:::.sn_connection_key(connection)
   assign(key, "secret-token", envir = ShennongData:::.sn_token_registry)
@@ -180,7 +182,7 @@ test_that("Artifact redirects are followed without forwarding credentials", {
 test_that("foreign redirect chains cannot re-enable same-origin credentials", {
   connection <- .contract_connection(
     "artifact-foreign-chain",
-    project_id = "project-123"
+    project_id = .contract_project_uuid
   )
   key <- ShennongData:::.sn_connection_key(connection)
   assign(key, "secret-token", envir = ShennongData:::.sn_token_registry)
@@ -231,7 +233,7 @@ test_that("foreign redirect chains cannot re-enable same-origin credentials", {
 test_that("project scope is attached to gateway headers and query bodies", {
   connection <- .contract_connection(
     "project-scope",
-    project_id = "project-123"
+    project_id = .contract_project_uuid
   )
   request <- sn_request(
     connection,
@@ -241,7 +243,7 @@ test_that("project scope is attached to gateway headers and query bodies", {
   )
   expect_identical(
     request$headers[["X-Shennong-Project-Id"]],
-    "project-123"
+    .contract_project_uuid
   )
   public_request <- sn_request(
     connection,
@@ -263,7 +265,7 @@ test_that("project scope is attached to gateway headers and query bodies", {
     .package = "ShennongData"
   )
   x <- .contract_handle(profile = "project-query")
-  x@connection$project_id <- "project-123"
+  x@connection$project_id <- .contract_project_uuid
   x@connection$capabilities <- list(batch_features = TRUE)
   sn_fetch_data(
     x,
@@ -272,7 +274,7 @@ test_that("project scope is attached to gateway headers and query bodies", {
     shape = "long",
     resolve = "never"
   )
-  expect_identical(captured$project_id, "project-123")
+  expect_identical(captured$project_id, .contract_project_uuid)
 })
 
 test_that("sparse long materialization constructs structural zeros directly", {

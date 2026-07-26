@@ -1,3 +1,5 @@
+.http_project_uuid <- "550e8400-e29b-41d4-a716-446655440000"
+
 test_that("endpoint paths have one source of truth", {
   expect_equal(ShennongData:::.sn_endpoint("version"), "/version")
   expect_equal(ShennongData:::.sn_endpoint("public_config"), "/api/v1/public-config")
@@ -38,7 +40,7 @@ test_that("negotiation falls back to public config when the gateway omits versio
 test_that("httr2 requests use JSON and redact bearer tokens", {
   connection <- ShennongData:::.sn_new_connection(
     "http://example.test", "http-test", tempdir(), 60, 3L, 4, NULL,
-    project_id = "project-123"
+    project_id = .http_project_uuid
   )
   key <- ShennongData:::.sn_connection_key(connection)
   assign(
@@ -60,7 +62,7 @@ test_that("httr2 requests use JSON and redact bearer tokens", {
   expect_equal(req$headers$Accept, "application/json")
   expect_identical(
     req$headers[["X-Shennong-Project-Id"]],
-    "project-123"
+    .http_project_uuid
   )
   printed <- paste(capture.output(req), collapse = "\n")
   expect_match(printed, "Authorization\\s*: <REDACTED>")
