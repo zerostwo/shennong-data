@@ -23,7 +23,9 @@
   observation axes when available, uses direct sparse construction, and
   drops explicit zero entries.
 - Local Artifact paths require explicit trusted-local mode and
-  confinement below a configured root.
+  confinement below a configured root. Windows drive-letter and
+  `file://` paths are normalized portably while UNC paths and remote
+  file URI hosts remain rejected.
 - SummarizedExperiment and Seurat conversions preserve DataBundle
   provenance and reject partial inputs by default.
 - [`sn_resolve_features()`](https://zerostwo.github.io/shennong-data/reference/sn_resolve_features.md),

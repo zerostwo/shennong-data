@@ -42,7 +42,7 @@
 <li>
 <code><a href="../reference/sn_api_compatibility.html">sn_api_compatibility()</a></code> now honors <code>capabilities$project_scope_required</code>. A projectless connection is reported as incompatible, with a reconnect instruction, when an OS allows only public catalog discovery without Project-scoped inspection/query. Servers that omit the capability retain direct/public DB behavior.</li>
 <li>Sparse output now requires <code>implicit_zero = TRUE</code>, retrieves declared observation axes when available, uses direct sparse construction, and drops explicit zero entries.</li>
-<li>Local Artifact paths require explicit trusted-local mode and confinement below a configured root.</li>
+<li>Local Artifact paths require explicit trusted-local mode and confinement below a configured root. Windows drive-letter and <code>file://</code> paths are normalized portably while UNC paths and remote file URI hosts remain rejected.</li>
 <li>SummarizedExperiment and Seurat conversions preserve DataBundle provenance and reject partial inputs by default.</li>
 <li>
 <code><a href="../reference/sn_resolve_features.html">sn_resolve_features()</a></code>, <code><a href="../reference/sn_slice_head.html">sn_slice_head()</a></code>, and <code><a href="../reference/sn_write_query.html">sn_write_query()</a></code> are now exported as documented.</li>
