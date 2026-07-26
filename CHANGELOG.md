@@ -10,6 +10,19 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add the `shennong.dev/data-bundle/v1` client materialization contract
+  for long, wide, dense, sparse, SummarizedExperiment, and Seurat
+  outputs, with explicit completeness, axis, missing-feature, and
+  zero-semantics provenance.
+- Add optional governed Project scope through
+  `sn_connect(project_id = ...)`, same-origin `X-Shennong-Project-Id`,
+  query-body bridging, and MCP `SHENNONG_PROJECT_ID` configuration.
+- Export the documented
+  [`sn_resolve_features()`](https://zerostwo.github.io/shennong-data/reference/sn_resolve_features.md),
+  [`sn_slice_head()`](https://zerostwo.github.io/shennong-data/reference/sn_slice_head.md),
+  and
+  [`sn_write_query()`](https://zerostwo.github.io/shennong-data/reference/sn_write_query.md)
+  helpers.
 - Add an R-native read-only MCP stdio server with six bounded Agent
   tools for compatibility checks, Resource discovery/inspection,
   identifier resolution, query planning, and small provenance-aware
@@ -28,16 +41,35 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Fetch declared observation axes before matrix/sparse materialization,
+  build sparse matrices directly, remove explicit zero entries, and
+  reject sparse output when missing coordinates are not declared
+  structural zeroes.
+- Restrict Artifact credentials to the connection origin, strip bearer
+  and Project headers from foreign presigned redirects, require foreign
+  HTTPS, and make local file access an explicit root-confined trusted
+  mode.
+- Require complete DataBundles for analysis-container conversion by
+  default; retain `allow_partial = TRUE` as an explicit
+  provenance-reviewed escape hatch.
+- Document production use through the Shennong OS/gateway with a user
+  PAT, never a DB admin key, and correct the TOIL layer to
+  `log2_tpm_plus_0.001`.
 - Fall back from a gateway-level `/version` `404`/`405` to
   `/api/v1/public-config` while retaining strict ShennongDB API-v1
   negotiation.
-- Refresh the contract matrix and frozen server version against current
-  ShennongDB `0.5.2` source and the local public deployment.
+- Refresh the contract matrix and frozen server version against the
+  ShennongDB `1.0.0` contract exposed through the Shennong OS/gateway,
+  without making a live-deployment claim.
 - Expose metadata-first query, artifact, conversion, and collection APIs
   while preserving the existing Resource handle contract.
 
 ### Testing
 
+- Add security and materialization contract tests for SSRF/local-path
+  guards, credential-stripping redirects, Project scope, axis retrieval,
+  `missing_features`, sparse structural zeroes, DataBundle provenance,
+  and public Shennong bulk-QC consumption.
 - Add Phase 2–5 contract coverage for fetch, conversion guards,
   artifacts, and collections, cursor pages, capability-gated batch/axis
   paths, and structured API errors.

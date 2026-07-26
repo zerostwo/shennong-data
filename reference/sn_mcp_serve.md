@@ -1,8 +1,9 @@
 # Run the ShennongData MCP stdio server
 
 The server reads newline-delimited JSON-RPC from standard input and
-writes only MCP messages to standard output. Configure the upstream
-instance with `SHENNONG_URL` and an optional `SHENNONG_TOKEN`.
+writes only MCP messages to standard output. Configure the user-facing
+Shennong OS/gateway with `SHENNONG_URL`, an optional `SHENNONG_TOKEN`,
+and an optional governed `SHENNONG_PROJECT_ID`.
 
 ## Usage
 

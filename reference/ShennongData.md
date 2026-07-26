@@ -6,9 +6,6 @@ assay view without materializing data values.
 ## Usage
 
 ``` r
-sn_connect(url = sn_server_url(), token = NULL, profile = "default",
-  cache_dir = tools::R_user_dir("ShennongData", "cache"), timeout = 60,
-  retries = 3L, throttle = 4, user_agent = NULL, set_default = TRUE)
 sn_load_data(resource, version = NULL,
   view = c("auto", "observations", "assay", "resource"),
   connection = sn_connection(), refresh = FALSE,
@@ -19,42 +16,6 @@ sn_assay(x, assay = NULL, layer = NULL)
 ```
 
 ## Arguments
-
-- url:
-
-  ShennongDB base URL.
-
-- token:
-
-  A session-only bearer token.
-
-- profile:
-
-  Authentication profile name.
-
-- cache_dir:
-
-  Metadata cache directory.
-
-- timeout:
-
-  Request timeout in seconds.
-
-- retries:
-
-  Maximum retry attempts.
-
-- throttle:
-
-  Maximum requests per second.
-
-- user_agent:
-
-  Optional user-agent string.
-
-- set_default:
-
-  Whether to use the connection by default.
 
 - resource:
 
@@ -104,7 +65,7 @@ A `ShennongData` handle or its requested metadata.
 
 ``` r
 if (FALSE) { # \dontrun{
-sn_connect("http://127.0.0.1:8000")
+sn_connect("http://127.0.0.1:18081")
 toil <- sn_load_data("toil")
 dim(toil)
 dim(sn_assay(toil))

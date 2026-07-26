@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">ShennongData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,8 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="articles/index.html">Articles</a></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -62,13 +64,14 @@
 <div class="section level2">
 <h2 id="basic-usage">Basic usage<a class="anchor" aria-label="anchor" href="#basic-usage"></a>
 </h2>
-<p>Connect to a ShennongDB server and create a metadata-only resource handle:</p>
+<p>In production, connect to the user-facing Shennong OS/gateway with a personal access token (PAT) and the governed Project scope. Do not use a database admin key:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://zerostwo.github.io/shennong-data/">ShennongData</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">sn_connect</a></span><span class="op">(</span></span>
-<span>  <span class="st">"https://your-shennongdb.example"</span>,</span>
-<span>  token <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_TOKEN"</span><span class="op">)</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sn_connect.html">sn_connect</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_URL"</span>, <span class="st">"https://your-shennong-gateway.example"</span><span class="op">)</span>,</span>
+<span>  token <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_TOKEN"</span><span class="op">)</span>,</span>
+<span>  project_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"SHENNONG_PROJECT_ID"</span>, <span class="st">"project-uuid"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">sn_load_data</a></span><span class="op">(</span><span class="st">"toil"</span>, connection <span class="op">=</span> <span class="va">con</span><span class="op">)</span></span>
@@ -84,24 +87,36 @@
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ShennongData.html">collect</a></span><span class="op">(</span><span class="va">observations</span><span class="op">)</span></span></code></pre></div>
 <p>Use bounded fetches or artifacts for larger data transfers:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/ShennongData.html">sn_fetch_data</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/sn_fetch_data.html">sn_fetch_data</a></span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
 <span>  features <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"YTHDF2"</span>, <span class="st">"FTO"</span><span class="op">)</span>,</span>
 <span>  layer <span class="op">=</span> <span class="st">"log2_tpm_plus_0.001"</span>,</span>
 <span>  limit <span class="op">=</span> <span class="fl">100</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ShennongData.html">sn_artifacts</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
+<p>Matrix and container materializations carry the target <code>shennong.dev/data-bundle/v1</code> provenance contract. Current Resources that do not yet declare the full contract are explicitly labeled <code>client_projection</code>; missing axes and batch <code>missing_features</code> remain visible as partial provenance. Sparse output is available only for measurements declaring <code>implicit_zero = TRUE</code>.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sn_fetch_data.html">sn_fetch_data</a></span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  features <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gene-a"</span>, <span class="st">"gene-b"</span><span class="op">)</span>,</span>
+<span>  layer <span class="op">=</span> <span class="st">"counts"</span>,</span>
+<span>  shape <span class="op">=</span> <span class="st">"sparse"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/ShennongData.html">sn_result_schema</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/ShennongData.html">sn_provenance</a></span><span class="op">(</span><span class="va">counts</span><span class="op">)</span><span class="op">$</span><span class="va">data_bundle</span></span></code></pre></div>
+<p>See the <a href="vignettes/data-materialization-contract.Rmd">data materialization contract</a> for matrix orientation, zero semantics, Artifact trust boundaries, and the public Shennong bulk-QC handoff.</p>
 </div>
 <div class="section level2">
 <h2 id="agent-and-mcp-integration">Agent and MCP integration<a class="anchor" aria-label="anchor" href="#agent-and-mcp-integration"></a>
 </h2>
 <p>Check the live API contract and discover visible Resources from R:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/sn_api_compatibility.html">sn_api_compatibility</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/sn_resources.html">sn_resources</a></span><span class="op">(</span><span class="va">con</span>, search <span class="op">=</span> <span class="st">"bulk"</span><span class="op">)</span></span></code></pre></div>
 <p>The package also includes a read-only stdio MCP server:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="va">SHENNONG_URL</span><span class="op">=</span>http://127.0.0.1:18080 <span class="dt">\</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'ShennongData::sn_mcp_serve()'</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="va">SHENNONG_URL</span><span class="op">=</span>http://127.0.0.1:18081 <span class="dt">\</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'ShennongData::sn_mcp_serve()'</span></span></code></pre></div>
 <p>It exposes bounded tools for compatibility checks, Resource discovery and inspection, identifier resolution, query planning, and small data fetches. See <a href="docs/agent-integrations.html"><code>docs/agent-integrations.md</code></a> for client configuration and safety limits.</p>
 <p>See the <a href="https://zerostwo.github.io/shennong-data/">pkgdown site</a> for the complete function reference.</p>
 </div>

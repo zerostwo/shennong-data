@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">ShennongData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -16,6 +16,8 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="articles/index.html">Articles</a></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/zerostwo/shennong-data/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -39,7 +41,10 @@
 <h2 id="unreleased"><a href="https://github.com/zerostwo/shennong-data/compare/v0.1.2...HEAD" class="external-link">Unreleased</a><a class="anchor" aria-label="anchor" href="#unreleased"></a></h2>
 <div class="section level3">
 <h3 id="added">Added<a class="anchor" aria-label="anchor" href="#added"></a></h3>
-<ul><li>Add an R-native read-only MCP stdio server with six bounded Agent tools for compatibility checks, Resource discovery/inspection, identifier resolution, query planning, and small provenance-aware fetches.</li>
+<ul><li>Add the <code>shennong.dev/data-bundle/v1</code> client materialization contract for long, wide, dense, sparse, SummarizedExperiment, and Seurat outputs, with explicit completeness, axis, missing-feature, and zero-semantics provenance.</li>
+<li>Add optional governed Project scope through <code>sn_connect(project_id = ...)</code>, same-origin <code>X-Shennong-Project-Id</code>, query-body bridging, and MCP <code>SHENNONG_PROJECT_ID</code> configuration.</li>
+<li>Export the documented <code><a href="reference/sn_resolve_features.html">sn_resolve_features()</a></code>, <code><a href="reference/sn_slice_head.html">sn_slice_head()</a></code>, and <code><a href="reference/sn_write_query.html">sn_write_query()</a></code> helpers.</li>
+<li>Add an R-native read-only MCP stdio server with six bounded Agent tools for compatibility checks, Resource discovery/inspection, identifier resolution, query planning, and small provenance-aware fetches.</li>
 <li>Add a repository-local <code>shennong-data</code> Agent Skill, MCP installation guide, Resource discovery API, and programmatic API compatibility report.</li>
 <li>Typed serializable query plans, strict filter/select pushdown, feature resolution, bounded multi-feature fetch, and provenance-aware results.</li>
 <li>Artifact listing/download verification, conversion planning, biological object adapters, relation/collection helpers, and server capability flags.</li>
@@ -47,13 +52,18 @@
 </ul></div>
 <div class="section level3">
 <h3 id="changed">Changed<a class="anchor" aria-label="anchor" href="#changed"></a></h3>
-<ul><li>Fall back from a gateway-level <code>/version</code> <code>404</code>/<code>405</code> to <code>/api/v1/public-config</code> while retaining strict ShennongDB API-v1 negotiation.</li>
-<li>Refresh the contract matrix and frozen server version against current ShennongDB <code>0.5.2</code> source and the local public deployment.</li>
+<ul><li>Fetch declared observation axes before matrix/sparse materialization, build sparse matrices directly, remove explicit zero entries, and reject sparse output when missing coordinates are not declared structural zeroes.</li>
+<li>Restrict Artifact credentials to the connection origin, strip bearer and Project headers from foreign presigned redirects, require foreign HTTPS, and make local file access an explicit root-confined trusted mode.</li>
+<li>Require complete DataBundles for analysis-container conversion by default; retain <code>allow_partial = TRUE</code> as an explicit provenance-reviewed escape hatch.</li>
+<li>Document production use through the Shennong OS/gateway with a user PAT, never a DB admin key, and correct the TOIL layer to <code>log2_tpm_plus_0.001</code>.</li>
+<li>Fall back from a gateway-level <code>/version</code> <code>404</code>/<code>405</code> to <code>/api/v1/public-config</code> while retaining strict ShennongDB API-v1 negotiation.</li>
+<li>Refresh the contract matrix and frozen server version against the ShennongDB <code>1.0.0</code> contract exposed through the Shennong OS/gateway, without making a live-deployment claim.</li>
 <li>Expose metadata-first query, artifact, conversion, and collection APIs while preserving the existing Resource handle contract.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a></h3>
-<ul><li>Add Phase 2–5 contract coverage for fetch, conversion guards, artifacts, and collections, cursor pages, capability-gated batch/axis paths, and structured API errors.</li>
+<ul><li>Add security and materialization contract tests for SSRF/local-path guards, credential-stripping redirects, Project scope, axis retrieval, <code>missing_features</code>, sparse structural zeroes, DataBundle provenance, and public Shennong bulk-QC consumption.</li>
+<li>Add Phase 2–5 contract coverage for fetch, conversion guards, artifacts, and collections, cursor pages, capability-gated batch/axis paths, and structured API errors.</li>
 </ul></div>
 </div>
 <div class="section level2">
