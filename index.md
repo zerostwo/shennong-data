@@ -103,6 +103,13 @@ sn_api_compatibility(con)
 sn_resources(con, search = "bulk")
 ```
 
+When a gateway advertises `project_scope_required = TRUE`,
+[`sn_api_compatibility()`](https://zerostwo.github.io/shennong-data/reference/sn_api_compatibility.md)
+reports a projectless connection as incompatible and instructs you to
+reconnect with a canonical Project UUID. This does not change
+projectless access to compatible public/direct DB endpoints that omit
+the capability or advertise it as false.
+
 The package also includes a read-only stdio MCP server:
 
 ``` sh

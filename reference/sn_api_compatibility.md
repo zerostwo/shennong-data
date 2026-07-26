@@ -1,6 +1,11 @@
-# Check ShennongData compatibility with a ShennongDB instance
+# Check ShennongData compatibility with a Shennong API
 
-Check ShennongData compatibility with a ShennongDB instance
+The compatibility report honors a server capability declaration of
+`project_scope_required = TRUE`. In that case, a connection without
+`project_id` is incompatible for inspection and query even when public
+Resource discovery is available. Servers that omit the capability,
+including compatible public/direct ShennongDB endpoints, retain
+projectless behavior.
 
 ## Usage
 
@@ -12,7 +17,7 @@ sn_api_compatibility(connection = sn_connection(), probe_discovery = TRUE)
 
 - connection:
 
-  A negotiated ShennongDB connection.
+  A negotiated Shennong OS/gateway or ShennongDB connection.
 
 - probe_discovery:
 
@@ -20,4 +25,5 @@ sn_api_compatibility(connection = sn_connection(), probe_discovery = TRUE)
 
 ## Value
 
-A structured compatibility report.
+A structured compatibility report, including Project requirements and
+actionable incompatibility reasons.

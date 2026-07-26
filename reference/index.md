@@ -17,7 +17,7 @@
 - [`sn_server_version()`](https://zerostwo.github.io/shennong-data/reference/sn_server_version.md)
   : Return the negotiated ShennongDB server version
 - [`sn_api_compatibility()`](https://zerostwo.github.io/shennong-data/reference/sn_api_compatibility.md)
-  : Check ShennongData compatibility with a ShennongDB instance
+  : Check ShennongData compatibility with a Shennong API
 - [`sn_resources()`](https://zerostwo.github.io/shennong-data/reference/sn_resources.md)
   : List Resources visible to the current ShennongDB connection
 - [`sn_load_data()`](https://zerostwo.github.io/shennong-data/reference/ShennongData.md)

@@ -13,6 +13,12 @@
   normalized to lowercase before use. Former free-form Project aliases
   are rejected locally so the client matches the OS authorization header
   contract.
+- [`sn_api_compatibility()`](https://zerostwo.github.io/shennong-data/reference/sn_api_compatibility.md)
+  now honors `capabilities$project_scope_required`. A projectless
+  connection is reported as incompatible, with a reconnect instruction,
+  when an OS allows only public catalog discovery without Project-scoped
+  inspection/query. Servers that omit the capability retain
+  direct/public DB behavior.
 - Sparse output now requires `implicit_zero = TRUE`, retrieves declared
   observation axes when available, uses direct sparse construction, and
   drops explicit zero entries.

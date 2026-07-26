@@ -3,7 +3,7 @@ pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   data-materialization-contract: data-materialization-contract.html
-last_built: 2026-07-26T15:58Z
+last_built: 2026-07-26T16:14Z
 urls:
   reference: https://zerostwo.github.io/shennong-data/reference
   article: https://zerostwo.github.io/shennong-data/articles

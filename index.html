@@ -118,6 +118,7 @@
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/sn_api_compatibility.html">sn_api_compatibility</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/sn_resources.html">sn_resources</a></span><span class="op">(</span><span class="va">con</span>, search <span class="op">=</span> <span class="st">"bulk"</span><span class="op">)</span></span></code></pre></div>
+<p>When a gateway advertises <code>project_scope_required = TRUE</code>, <code><a href="reference/sn_api_compatibility.html">sn_api_compatibility()</a></code> reports a projectless connection as incompatible and instructs you to reconnect with a canonical Project UUID. This does not change projectless access to compatible public/direct DB endpoints that omit the capability or advertise it as false.</p>
 <p>The package also includes a read-only stdio MCP server:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="va">SHENNONG_URL</span><span class="op">=</span>http://127.0.0.1:18081 <span class="dt">\</span></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">'ShennongData::sn_mcp_serve()'</span></span></code></pre></div>

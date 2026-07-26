@@ -20,7 +20,12 @@ con <- sn_connect(
 With a Project scope, authenticated same-origin requests carry
 `X-Shennong-Project-Id`, and query bodies include `project_id` as a
 gateway compatibility bridge. A direct DB/public connection remains
-compatible when `project_id = NULL`. A governed `project_id` must be a
+compatible when `project_id = NULL` unless its capabilities explicitly
+require Project scope. Shennong OS advertises that requirement when
+projectless access stops at public catalog discovery;
+[`sn_api_compatibility()`](https://zerostwo.github.io/shennong-data/reference/sn_api_compatibility.md)
+then reports the connection as incompatible for inspection/query and
+provides a reconnect instruction. A governed `project_id` must be a
 canonical UUID; aliases and slugs are rejected before network access.
 
 ## DataBundle provenance
