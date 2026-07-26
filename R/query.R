@@ -137,6 +137,13 @@ sn_rename <- function(.data, ...) {
 
 rename.ShennongData <- function(.data, ...) sn_rename(.data, ...)
 
+#' Limit a lazy ShennongData query
+#'
+#' @param x A [ShennongData] handle.
+#' @param n Maximum number of observations requested per feature.
+#' @param ... Reserved for compatible methods.
+#' @return A lazy [ShennongData] handle.
+#' @export
 sn_slice_head <- function(x, n = 6L, ...) {
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
   if (length(n) != 1L || is.na(n) || n < 0) stop("`n` must be a non-negative scalar.", call. = FALSE)
@@ -147,12 +154,13 @@ sn_slice_head <- function(x, n = 6L, ...) {
 
 slice_head.ShennongData <- function(.data, ..., n = 6L) sn_slice_head(.data, n)
 
+#' @exportS3Method
 head.ShennongData <- function(x, n = 6L, ...) sn_slice_head(x, n)
 
 sn_query_plan <- function(x) {
   if (S7::S7_inherits(x, ShennongData)) return(.sn_empty_query(x))
-  if (inherits(x, "shennong_result")) return(attr(x, "shennong_query"))
-  stop("`x` is not a ShennongData handle or shennong_result.", call. = FALSE)
+  if (.sn_is_result(x)) return(attr(x, "shennong_query"))
+  stop("`x` is not a ShennongData handle or materialized result.", call. = FALSE)
 }
 
 .sn_jsonable <- function(x) {
@@ -181,7 +189,9 @@ sn_explain <- function(x) {
   result
 }
 
+#' @exportS3Method
 format.shennong_explanation <- function(x, ...) paste0("<shennong_explanation> ", x$resource, " via ", x$source)
+#' @exportS3Method
 print.shennong_explanation <- function(x, ...) { cat(format(x), "\n"); invisible(x) }
 
 sn_query_fingerprint <- function(x) {
@@ -192,6 +202,13 @@ sn_query_fingerprint <- function(x) {
   if (requireNamespace("digest", quietly = TRUE)) digest::digest(json, algo = "sha256") else paste0("sha256:", nchar(json), ":", sum(charToRaw(json)))
 }
 
+#' Write a serializable ShennongData query plan
+#'
+#' @param x A [ShennongData] handle or materialized result.
+#' @param path Destination JSON path.
+#' @param format Query-plan format. JSON is currently supported.
+#' @return `path`, invisibly.
+#' @export
 sn_write_query <- function(x, path, format = c("json", "yaml")) {
   format <- match.arg(format)
   if (format == "yaml") stop("YAML query writing requires an explicit YAML dependency; use `format = \"json\"`.", call. = FALSE)

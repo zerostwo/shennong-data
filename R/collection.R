@@ -37,6 +37,7 @@ sn_collection <- function(..., resources = NULL) {
   structure(list(resources = values, feature_map = NULL, sample_map = NULL, provenance = list()), class = "ShennongCollection")
 }
 
+#' @exportS3Method
 print.ShennongCollection <- function(x, ...) { cat("<ShennongCollection>\nResources: ", paste(names(x$resources), collapse = ", "), "\n", sep = ""); invisible(x) }
 
 sn_collection_resources <- function(x) {

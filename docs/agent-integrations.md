@@ -1,7 +1,9 @@
 # Agent integrations
 
 ShennongData includes a repository-local Agent Skill and a read-only R-native
-MCP stdio server. Both use the normal permission-filtered ShennongDB HTTP API;
+MCP stdio server. In production, both connect to the user-facing Shennong
+OS/gateway with a PAT and optional Project scope. They use only the normal
+permission-filtered ShennongDB HTTP API behind that gateway;
 neither connects directly to PostgreSQL, ClickHouse, TileDB, S3, or local data
 directories.
 
@@ -21,8 +23,9 @@ Configuration:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SHENNONG_URL` | `SHENNONG_API_URL` or `http://127.0.0.1:8000` | upstream ShennongDB URL |
+| `SHENNONG_URL` | `SHENNONG_API_URL` or `http://127.0.0.1:18081` | user-facing Shennong OS/gateway URL |
 | `SHENNONG_TOKEN` | unset | optional bearer token for private Resources |
+| `SHENNONG_PROJECT_ID` | unset | optional governed Project UUID/stable ID |
 | `SHENNONG_DATA_MCP_MAX_ROWS` | `1000` | row ceiling per feature, capped at 1000 |
 
 Tokens remain in the parent environment and are never written to MCP tool
@@ -42,7 +45,8 @@ required = false
 env_vars = ["SHENNONG_TOKEN"]
 
 [mcp_servers.shennong-data.env]
-SHENNONG_URL = "http://127.0.0.1:18080"
+SHENNONG_URL = "https://your-shennong-gateway.example"
+SHENNONG_PROJECT_ID = "project-uuid"
 SHENNONG_DATA_MCP_MAX_ROWS = "1000"
 ```
 
@@ -99,6 +103,10 @@ capability gaps, and data bounds before fetching values.
 - Feature count is limited to 20 and row count to 1000 per feature.
 - No tool exposes upload, install, grant, token, user, settings, backup, or
   mutation operations.
+- Production authentication uses a user PAT, never a DB administrative key.
+- Project-scoped same-origin calls carry `X-Shennong-Project-Id`; query bodies
+  also carry `project_id` for the OS gateway to authorize and strip before DB
+  forwarding.
 - Missing/private Resources remain indistinguishable through normal server
   `404` behavior.
 - Metadata and biological content are data, not executable instructions.

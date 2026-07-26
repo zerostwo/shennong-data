@@ -8,7 +8,14 @@ sn_register_converter <- function(target, can_convert, plan, convert, packages =
 }
 
 .sn_target <- function(target) {
-  aliases <- c(se = "SummarizedExperiment", sce = "SingleCellExperiment", dds = "DESeqDataSet", dge = "DGEList", surv = "Surv")
+  aliases <- c(
+    se = "SummarizedExperiment",
+    sce = "SingleCellExperiment",
+    dds = "DESeqDataSet",
+    dge = "DGEList",
+    surv = "Surv",
+    dgCMatrix = "sparse"
+  )
   alias <- unname(aliases[target])
   if (length(alias) == 1L && !is.na(alias)) target <- alias
   if (!is.character(target) || length(target) != 1L || !nzchar(target)) stop("`target` must be a non-empty scalar.", call. = FALSE)
@@ -27,6 +34,21 @@ sn_register_converter <- function(target, can_convert, plan, convert, packages =
   measurement
 }
 
+#' Plan a DataBundle materialization
+#'
+#' @param x A [ShennongData] handle or materialized result.
+#' @param target Target matrix or analysis container.
+#' @param source Query, Artifact, or automatic source selection.
+#' @param assay Optional assay name.
+#' @param layer Exact declared measurement name.
+#' @param features A bounded feature identifier vector.
+#' @param observations Reserved for compatible observation selection.
+#' @param fields Observation metadata fields.
+#' @param allow_large Whether to bypass configured size guards.
+#' @param ... Converter-specific controls.
+#' @return A conversion plan describing the DataBundle contract,
+#'   completeness requirement, and output orientation.
+#' @export
 sn_conversion_plan <- function(x, target, source = c("auto", "query", "artifact"), assay = NULL,
                                layer = NULL, features = NULL, observations = NULL, fields = NULL,
                                allow_large = FALSE, ...) {
@@ -39,10 +61,23 @@ sn_conversion_plan <- function(x, target, source = c("auto", "query", "artifact"
     if (!identical(target, "MultiAssayExperiment")) stop("Unsupported collection target `", target, "`.", call. = FALSE)
     return(structure(list(target = target, source = source, ready = !is.null(x$sample_map), resources = names(x$resources), requirements = list(sample_map = is.null(x$sample_map))), class = "shennong_conversion_plan"))
   }
-  if (inherits(x, "shennong_result")) {
-    resource <- sn_resource_ref(x); measurement <- attr(x, "shennong_provenance")$layer
+  if (.sn_is_result(x)) {
+    resource <- sn_resource_ref(x)
+    measurement <- (attr(x, "shennong_provenance") %||% list())$layer
+    schema <- sn_result_schema(x) %||% list()
     return(structure(list(target = target, source = source, resource = resource, layer = measurement,
-                          ready = TRUE, requirements = list(), query = sn_query_plan(x)), class = "shennong_conversion_plan"))
+                          ready = TRUE, requirements = list(),
+                          contract = list(
+                            input = schema$contract %||% .sn_data_bundle_contract,
+                            status = schema$contract_status %||% "client_projection",
+                            completeness = if (isTRUE(schema$complete)) "complete" else "partial",
+                            output_orientation = if (target %in% c("matrix", "sparse")) {
+                              "feature_by_observation"
+                            } else {
+                              "target_native"
+                            }
+                          ),
+                          query = sn_query_plan(x)), class = "shennong_conversion_plan"))
   }
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle or shennong_result.", call. = FALSE)
   if (target %in% c("DESeqDataSet", "DGEList", "SingleCellExperiment", "Seurat", "cell_data_set")) {
@@ -56,27 +91,134 @@ sn_conversion_plan <- function(x, target, source = c("auto", "query", "artifact"
   if (target == "CellChat" && !"cell_type_annotation" %in% (x@resource$analysis_readiness$ready %||% character()) &&
       !"cell_type" %in% names(x@resource$observation_fields)) stop("CellChat conversion requires missing Resource/annotation `cell_type_annotation`.", call. = FALSE)
   invisible(allow_large)
+  bundle <- .sn_data_bundle_base(x@resource, "shennongdb-v1-resource-query")
   structure(list(target = target, source = source, resource = list(id = x@resource$id, version = x@resource$version),
                  layer = layer, assay = assay, features = features, observations = observations, fields = fields,
-                 ready = TRUE, requirements = list(), query = sn_query_plan(x)), class = "shennong_conversion_plan")
+                 ready = TRUE, requirements = list(),
+                 contract = list(
+                   input = bundle$contract,
+                   status = bundle$status,
+                   completeness = "required_for_analysis_containers",
+                   output_orientation = if (target %in% c("matrix", "sparse")) {
+                     "feature_by_observation"
+                   } else {
+                     "target_native"
+                   }
+                 ),
+                 query = sn_query_plan(x)), class = "shennong_conversion_plan")
 }
 
+#' @exportS3Method
 print.shennong_conversion_plan <- function(x, ...) { cat("<shennong_conversion_plan>\nTarget: ", x$target, "\nSource: ", x$source, "\nReady: ", x$ready, "\n", sep = ""); invisible(x) }
 
-.sn_materialized_data <- function(x, target, layer = NULL, features = NULL, fields = NULL, source = "auto", allow_large = FALSE, ...) {
-  if (inherits(x, "shennong_result")) return(x)
-  sn_fetch_data(x, features = features, fields = fields, layer = layer, source = source, shape = "long", allow_large = allow_large, ...)
+.sn_materialized_data <- function(x, target, layer = NULL, features = NULL,
+                                  fields = NULL, source = "auto",
+                                  allow_large = FALSE, shape = "long", ...) {
+  if (.sn_is_result(x)) return(x)
+  sn_fetch_data(
+    x,
+    features = features,
+    fields = fields,
+    layer = layer,
+    source = source,
+    shape = shape,
+    allow_large = allow_large,
+    ...
+  )
 }
 
-.sn_result_matrix <- function(result) {
-  if (is.matrix(result) || inherits(result, "Matrix")) return(result)
+.sn_result_matrix <- function(result, sparse = NULL) {
+  if (is.matrix(result) || inherits(result, "Matrix")) {
+    if (isTRUE(sparse) && !inherits(result, "Matrix")) {
+      bundle <- sn_provenance(result)$data_bundle %||% list()
+      if (!isTRUE(bundle$implicit_zero) || anyNA(result)) {
+        stop(
+          "Sparse conversion requires complete data with `implicit_zero = TRUE`.",
+          call. = FALSE
+        )
+      }
+      if (!requireNamespace("Matrix", quietly = TRUE)) {
+        stop("Package `Matrix` is required for sparse conversion.", call. = FALSE)
+      }
+      return(Matrix::drop0(Matrix::Matrix(result, sparse = TRUE)))
+    }
+    if (identical(sparse, FALSE) && inherits(result, "Matrix")) {
+      return(as.matrix(result))
+    }
+    return(result)
+  }
   data <- as.data.frame(result)
   if (!all(c("observation_id", "feature", "value") %in% names(data))) stop("A long result must contain `observation_id`, `feature`, and `value` columns.", call. = FALSE)
-  .sn_long_to_matrix(data, lapply(unique(data$feature), function(z) list(input = z, original_id = z)), sparse = FALSE)
+  bundle <- sn_provenance(result)$data_bundle %||% list()
+  implicit_zero <- isTRUE(bundle$implicit_zero)
+  if (is.null(sparse)) {
+    sparse <- implicit_zero && (
+      isTRUE(bundle$measurement$sparse) ||
+        is.null(bundle$measurement$sparse)
+    )
+  }
+  feature_ids <- bundle$feature_ids %||% unique(as.character(data$feature))
+  resolved <- lapply(feature_ids, function(id) {
+    list(input = id, original_id = id)
+  })
+  .sn_long_to_matrix(
+    data,
+    resolved,
+    sparse = isTRUE(sparse),
+    implicit_zero = implicit_zero,
+    observation_ids = bundle$observation_ids %||%
+      unique(as.character(data$observation_id))
+  )
 }
 
+.sn_attach_matrix_contract <- function(mat, result, shape) {
+  query <- sn_query_plan(result)
+  query$shape <- shape
+  provenance <- sn_provenance(result) %||% list()
+  provenance$data_bundle <- utils::modifyList(
+    provenance$data_bundle %||% list(
+      contract = .sn_data_bundle_contract,
+      status = "client_projection"
+    ),
+    list(
+      shape = shape,
+      orientation = "feature_by_observation"
+    )
+  )
+  if (!inherits(mat, "Matrix")) {
+    class(mat) <- unique(c("shennong_matrix", class(mat)))
+  }
+  attr(mat, "shennong_query") <- query
+  attr(mat, "shennong_provenance") <- provenance
+  attr(mat, "shennong_schema") <- list(
+    contract = provenance$data_bundle$contract %||% .sn_data_bundle_contract,
+    contract_status = provenance$data_bundle$status %||% "client_projection",
+    shape = shape,
+    orientation = "feature_by_observation",
+    columns = colnames(mat),
+    complete = !sn_is_partial(result)
+  )
+  attr(mat, "shennong_partial") <- sn_is_partial(result)
+  attr(mat, "shennong_resource") <- sn_resource_ref(result)
+  mat
+}
+
+#' Materialize a matrix or analysis container
+#'
+#' `matrix` and `sparse` targets use feature-by-observation orientation.
+#' SummarizedExperiment and Seurat conversions preserve DataBundle provenance.
+#' Analysis containers require a complete DataBundle by default. The
+#' `allow_partial` escape hatch is explicit because missing features or axes can
+#' otherwise be mistaken for biological zeroes.
+#'
+#' @inheritParams sn_conversion_plan
+#' @param allow_partial Whether an incomplete result may be converted to an
+#'   analysis container after provenance review.
+#' @return A matrix, `dgCMatrix`, or requested analysis container.
+#' @export
 sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NULL, layer = NULL,
-                 features = NULL, observations = NULL, fields = NULL, allow_large = FALSE, ...) {
+                 features = NULL, observations = NULL, fields = NULL,
+                 allow_large = FALSE, allow_partial = FALSE, ...) {
   target <- .sn_target(target); source <- match.arg(source)
   if (inherits(x, "ShennongCollection")) return(sn_as_collection(x, target = target, allow_large = allow_large, ...))
   if (exists(target, envir = .sn_converter_registry, inherits = FALSE)) {
@@ -84,14 +226,14 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
     if (isTRUE(do.call(converter$can_convert, c(list(x), list(...))))) return(do.call(converter$convert, c(list(x), list(...))))
   }
   if (target == "Surv") {
-    if (!inherits(x, "shennong_result")) stop("Surv conversion requires a materialized result with time/event fields.", call. = FALSE)
+    if (!.sn_is_result(x)) stop("Surv conversion requires a materialized result with time/event fields.", call. = FALSE)
     args <- list(...); time <- args$time %||% args$endpoint_time %||% "time"; event <- args$event %||% "event"
     if (!all(c(time, event) %in% names(x))) stop("Survival result requires fields `", time, "` and `", event, "`.", call. = FALSE)
     if (!requireNamespace("survival", quietly = TRUE)) stop("Package `survival` is required.", call. = FALSE)
     return(survival::Surv(x[[time]], x[[event]]))
   }
   if (target == "survival_data") {
-    if (!inherits(x, "shennong_result")) stop("`survival_data` conversion requires a materialized result.", call. = FALSE)
+    if (!.sn_is_result(x)) stop("`survival_data` conversion requires a materialized result.", call. = FALSE)
     args <- list(...); time <- args$time %||% "time"; event <- args$event %||% "event"
     if (!all(c(time, event) %in% names(x))) stop("Survival result requires fields `", time, "` and `", event, "`.", call. = FALSE)
     if (!requireNamespace("survival", quietly = TRUE)) stop("Package `survival` is required.", call. = FALSE)
@@ -99,16 +241,82 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
   }
   if (target %in% c("DESeqDataSet", "DGEList")) {
     if (S7::S7_inherits(x, ShennongData)) .sn_require_measurement(x, layer, counts = TRUE)
-    else if (!inherits(x, "shennong_result")) stop("Count-based conversion requires a ShennongData handle or shennong_result.", call. = FALSE)
+    else if (!.sn_is_result(x)) stop("Count-based conversion requires a ShennongData handle or shennong_result.", call. = FALSE)
   }
   plan <- if (S7::S7_inherits(x, ShennongData)) sn_conversion_plan(x, target, source, layer = layer, features = features, fields = fields, allow_large = allow_large, ...) else sn_conversion_plan(x, target, source)
-  result <- .sn_materialized_data(x, target, layer, features, fields, source, allow_large, ...)
+  materialization_shape <- if (target %in% c("matrix", "sparse")) target else "long"
+  result <- .sn_materialized_data(
+    x,
+    target,
+    layer,
+    features,
+    fields,
+    source,
+    allow_large,
+    shape = materialization_shape,
+    ...
+  )
+  if (target %in% c("matrix", "sparse")) {
+    mat <- .sn_result_matrix(result, sparse = target == "sparse")
+    return(.sn_attach_matrix_contract(mat, result, target))
+  }
+  analysis_targets <- c(
+    "SummarizedExperiment",
+    "SingleCellExperiment",
+    "Seurat",
+    "DESeqDataSet",
+    "DGEList",
+    "EList",
+    "CellChat",
+    "cell_data_set"
+  )
+  if (target %in% analysis_targets && sn_is_partial(result) &&
+      !isTRUE(allow_partial)) {
+    reasons <- sn_provenance(result)$data_bundle$incomplete_reasons %||%
+      "unspecified"
+    stop(
+      "Conversion to `",
+      target,
+      "` requires a complete DataBundle; result is partial (",
+      paste(reasons, collapse = ", "),
+      "). Set `allow_partial = TRUE` only after reviewing provenance.",
+      call. = FALSE
+    )
+  }
   if (target %in% c("SummarizedExperiment", "SingleCellExperiment", "Seurat", "DESeqDataSet", "DGEList", "EList")) {
     mat <- .sn_result_matrix(result)
-    fields_data <- as.data.frame(result)
-    col_data <- if ("observation_id" %in% names(fields_data)) unique(fields_data[, c("observation_id", setdiff(fields, "observation_id")), drop = FALSE]) else data.frame(row.names = colnames(mat))
+    fields_data <- if (is.matrix(result) || inherits(result, "Matrix")) {
+      data.frame(row.names = colnames(mat))
+    } else {
+      as.data.frame(result)
+    }
+    available_fields <- intersect(
+      setdiff(fields %||% character(), "observation_id"),
+      names(fields_data)
+    )
+    col_data <- if ("observation_id" %in% names(fields_data)) {
+      unique(fields_data[, c("observation_id", available_fields), drop = FALSE])
+    } else {
+      data.frame(observation_id = colnames(mat), stringsAsFactors = FALSE)
+    }
+    index <- match(colnames(mat), as.character(col_data$observation_id))
+    if (anyNA(index)) {
+      missing <- colnames(mat)[is.na(index)]
+      missing_rows <- col_data[
+        rep(NA_integer_, length(missing)),
+        ,
+        drop = FALSE
+      ]
+      missing_rows$observation_id <- missing
+      col_data <- rbind(
+        col_data,
+        missing_rows
+      )
+      index <- match(colnames(mat), as.character(col_data$observation_id))
+    }
+    col_data <- col_data[index, , drop = FALSE]
     row_data <- data.frame(feature_id = rownames(mat), row.names = rownames(mat), stringsAsFactors = FALSE)
-    if ("observation_id" %in% names(col_data)) rownames(col_data) <- make.unique(as.character(col_data$observation_id))
+    rownames(col_data) <- colnames(mat)
     if (target == "SummarizedExperiment") {
       if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) stop("Package `SummarizedExperiment` is required.", call. = FALSE)
       assay_name <- sn_provenance(result)$layer %||% plan$layer %||% "assay"
@@ -116,7 +324,6 @@ sn_as <- function(x, target, source = c("auto", "query", "artifact"), assay = NU
     }
     if (target == "SingleCellExperiment") {
       if (!requireNamespace("SingleCellExperiment", quietly = TRUE)) stop("Package `SingleCellExperiment` is required.", call. = FALSE)
-      if (S7::S7_inherits(x, ShennongData) && identical(source, "query") && isTRUE(.sn_measurement(x, layer)$spec$sparse) && is.null(get0("observation_ids", envir = x@cache, inherits = FALSE, ifnotfound = NULL))) stop("A sparse query is a nonzero subset; a complete cell axis or Artifact is required for SingleCellExperiment conversion.", call. = FALSE)
       sce <- SingleCellExperiment::SingleCellExperiment(assays = list(counts = mat), rowData = S4Vectors::DataFrame(row_data), colData = S4Vectors::DataFrame(col_data)); S4Vectors::metadata(sce)$shennong <- sn_provenance(result); return(sce)
     }
     if (target == "DESeqDataSet") {
@@ -171,7 +378,7 @@ sn_export <- function(x, format, path, source = c("auto", "query", "artifact"), 
   }
   if (format == "arrow" && S7::S7_inherits(x, ShennongData)) return(sn_stream_data(x, path = path, ...))
   if (format %in% c("h5ad", "h5mu")) stop("H5AD/H5MU export requires a matching Artifact or an explicit zellkonverter/anndata runtime; use `sn_runtime_check()` before exporting.", call. = FALSE)
-  result <- if (inherits(x, "shennong_result")) x else sn_fetch_data(x, source = source, shape = "long", ...)
+  result <- if (.sn_is_result(x)) x else sn_fetch_data(x, source = source, shape = "long", ...)
   if (format %in% c("csv", "tsv", "txt")) {
     utils::write.table(as.data.frame(result), path, sep = if (format == "csv") "," else "\t", row.names = FALSE, col.names = TRUE, quote = format == "csv")
   } else if (format == "rds") saveRDS(result, path) else stop("Unsupported export format `", format, "`.", call. = FALSE)

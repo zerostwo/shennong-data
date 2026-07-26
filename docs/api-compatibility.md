@@ -1,17 +1,17 @@
-# ShennongDB API compatibility
+# Shennong OS/ShennongDB API compatibility
 
-Audit date: 2026-07-15
+Audit date: 2026-07-26
 
-`ShennongData` 0.2.0 is compatible with the current ShennongDB v1 source
-checkout at `/home/duansq/dev/services/shennong-db` (`0.5.2`, commit
-`047c7bd`) for its public read/data-access surface.
+`ShennongData` 0.2.0.9000 targets the ShennongDB `1.0.0` API-v1 read/data
+contract through the user-facing Shennong OS/gateway. An explicit URL can
+still target a compatible public/direct DB endpoint.
 
 ## Contract matrix
 
-| Client concern | R client endpoint | Current server route | Status |
+| Client concern | R client endpoint | Required OS/DB route | Client status |
 | --- | --- | --- | --- |
-| API identity | `GET /version` | `/version` | compatible in source; runtime gateway fallback required |
-| Gateway identity fallback | `GET /api/v1/public-config` | `/api/v1/public-config` | compatible |
+| API identity | `GET /version` | `/version` | implemented |
+| Gateway identity fallback | `GET /api/v1/public-config` | `/api/v1/public-config` | implemented for `404`/`405` |
 | Capabilities | `GET /api/v1/capabilities` | `/api/v1/capabilities` | compatible |
 | Resource catalog | `GET /.well-known/shennong-agent.json` | same | compatible |
 | Resource inspection | `GET /api/v1/agent/resources/{id}` | same | compatible |
@@ -21,8 +21,16 @@ checkout at `/home/duansq/dev/services/shennong-db` (`0.5.2`, commit
 | One-feature query | `POST /api/v1/query` | same | compatible |
 | Batch query | `POST /api/v1/query/batch` | same | compatible, 1–100 server features |
 | JSONL stream | `POST /api/v1/query/stream` | same | compatible |
-| Arrow stream | requested through query stream | server returns `501` | correctly reported unavailable |
+| Arrow stream | requested through query stream | capability-gated | unavailable unless advertised |
 | Artifact download | `GET /api/v1/resources/{id}/artifacts/{artifact_id}/download` | same | compatible |
+
+For governed production use, connect to the Shennong OS/gateway rather than a
+DB administrative endpoint. `sn_connect(project_id = ...)` sends
+`X-Shennong-Project-Id` on authenticated same-origin calls and includes
+`project_id` in query/batch/stream bodies as a compatibility bridge. The OS
+authorizes the Project and strips the body field before forwarding to a DB
+deployment that does not yet accept it. With `project_id = NULL`, public/direct
+DB behavior remains unchanged.
 
 The request models match the current Rust types:
 
@@ -36,21 +44,31 @@ Successful API payloads use the `{"data": ...}` envelope. Errors use
 `error`, `code`, `message`, and `request_id`; `ShennongData` preserves HTTP
 status, code, message, and optional details in `shennong_api_error`.
 
-## Current running instance
+## DataBundle status
 
-The local public instance at `http://127.0.0.1:18080` reports ShennongDB
-`0.5.2`. On the audit date:
+The target data materialization contract is
+`shennong.dev/data-bundle/v1`. Resource metadata may declare it through
+`metadata.data_bundle.schema_version`. Current legacy Resources that omit that
+declaration are not reported as official complete bundles: ShennongData marks
+their materialized provenance `status = "client_projection"` and records axis
+and feature completeness explicitly.
 
-- `/health`, `/healthz`, `/api/v1/capabilities`, the Agent manifest, Resource
-  inspection, and gene resolution returned `200`;
-- `/version` returned `404` at the Next.js gateway even though the current Rust
-  server source defines the route;
-- `/api/v1/public-config` returned API `v1` and service version `0.5.2`.
+Batch `meta.missing_features`, missing observation axes, query failures, and
+ambiguous missing coordinates make a projection partial. Sparse output is
+constructed only when `implicit_zero = true`; declared observation axes are
+fetched before feature-by-observation matrix construction when supported.
 
-The client therefore treats only `404`/`405` from `/version` as a gateway
-compatibility case and negotiates through `/api/v1/public-config`. Other
-version errors remain fatal. This keeps strict API-v1 validation without
-requiring a deployment rebuild.
+## Deployment boundary
+
+This document records a source and client contract, not a live deployment
+assertion. The package default is the local Shennong OS entry point
+`http://127.0.0.1:18081`. A deployment must still prove route forwarding,
+authentication, Project binding, Artifact streaming, and the advertised
+capabilities in its own API/browser/compose checks.
+
+The client treats only `404`/`405` from `/version` as a gateway compatibility
+case and then negotiates through `/api/v1/public-config`. Other version errors
+remain fatal.
 
 ## Verification
 
@@ -64,7 +82,11 @@ For a live instance, run:
 
 ```r
 library(ShennongData)
-con <- sn_connect("http://127.0.0.1:18080")
+con <- sn_connect(
+  "https://your-shennong-gateway.example",
+  token = Sys.getenv("SHENNONG_TOKEN"),
+  project_id = "project-uuid"
+)
 sn_api_compatibility(con)
 sn_resources(con)
 x <- sn_load_data("toil", connection = con)

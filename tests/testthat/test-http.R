@@ -23,7 +23,7 @@ test_that("negotiation falls back to public config when the gateway omits versio
           class = c("shennong_api_error", "error", "condition")
         ))
       }
-      list(data = list(api_version = "v1", service_version = "0.5.2"))
+      list(data = list(api_version = "v1", service_version = "1.0.0"))
     },
     .package = "ShennongData"
   )
@@ -31,13 +31,14 @@ test_that("negotiation falls back to public config when the gateway omits versio
   negotiated <- ShennongData:::.sn_negotiate(connection)
 
   expect_equal(negotiated$api_version, "v1")
-  expect_equal(negotiated$server_version, "0.5.2")
+  expect_equal(negotiated$server_version, "1.0.0")
   expect_true(any(endsWith(seen, "/api/v1/public-config")))
 })
 
 test_that("httr2 requests use JSON and redact bearer tokens", {
   connection <- ShennongData:::.sn_new_connection(
-    "http://example.test", "http-test", tempdir(), 60, 3L, 4, NULL
+    "http://example.test", "http-test", tempdir(), 60, 3L, 4, NULL,
+    project_id = "project-123"
   )
   key <- ShennongData:::.sn_connection_key(connection)
   assign(
@@ -57,7 +58,19 @@ test_that("httr2 requests use JSON and redact bearer tokens", {
   expect_equal(req$url, "http://example.test/api/v1/query")
   expect_equal(req$method, "POST")
   expect_equal(req$headers$Accept, "application/json")
+  expect_identical(
+    req$headers[["X-Shennong-Project-Id"]],
+    "project-123"
+  )
   printed <- paste(capture.output(req), collapse = "\n")
-  expect_match(printed, "Authorization: <REDACTED>", fixed = TRUE)
+  expect_match(printed, "Authorization\\s*: <REDACTED>")
   expect_false(grepl("secret-token", printed, fixed = TRUE))
+  unauthenticated <- sn_request(
+    connection,
+    ShennongData:::.sn_endpoint("version"),
+    auth = "none"
+  )
+  expect_null(
+    unauthenticated$headers[["X-Shennong-Project-Id"]]
+  )
 })

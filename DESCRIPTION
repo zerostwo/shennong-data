@@ -1,7 +1,7 @@
 Package: ShennongData
 Type: Package
 Title: Lazy R Client for Shennong Data Server
-Version: 0.2.0
+Version: 0.2.0.9000
 Authors@R: c(
     person("Songqi", "Duan", , "duan@songqi.org", role = c("aut", "cre"))
   )
@@ -27,9 +27,11 @@ Suggests:
     digest,
     dplyr,
     edgeR,
+    knitr,
     Matrix,
     MultiAssayExperiment,
     monocle3,
+    rmarkdown,
     S4Vectors,
     SeuratObject,
     SummarizedExperiment,
@@ -37,9 +39,10 @@ Suggests:
     survival,
     tibble,
     testthat (>= 3.0.0)
+VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/Needs/website: pkgdown
 Remotes:
     jinworks/CellChat
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.0.0

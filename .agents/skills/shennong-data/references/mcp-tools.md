@@ -10,8 +10,9 @@ Environment:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SHENNONG_URL` | package server URL | ShennongDB base URL |
+| `SHENNONG_URL` | `http://127.0.0.1:18081` | Shennong OS/gateway base URL |
 | `SHENNONG_TOKEN` | unset | optional bearer token |
+| `SHENNONG_PROJECT_ID` | unset | optional governed Project UUID/stable ID |
 | `SHENNONG_DATA_MCP_MAX_ROWS` | `1000` | per-feature row ceiling, never above 1000 |
 
 All six tools are read-only:
@@ -28,3 +29,6 @@ All six tools are read-only:
 Use this order: `check_compatibility` → `list_resources` → `inspect_resource` → `resolve_features` → `plan_query` → `fetch_data`.
 
 The server uses MCP protocol revision `2025-11-25` and supports compatible earlier revisions. Stdio messages are newline-delimited JSON-RPC. Standard output contains MCP messages only; credentials come from the parent environment.
+
+Production clients should point `SHENNONG_URL` at the Shennong OS/gateway and
+use a user PAT. Never configure a DB admin key.

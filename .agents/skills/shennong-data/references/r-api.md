@@ -4,8 +4,9 @@
 library(ShennongData)
 
 con <- sn_connect(
-  Sys.getenv("SHENNONG_URL", "http://127.0.0.1:18080"),
-  token = Sys.getenv("SHENNONG_TOKEN")
+  Sys.getenv("SHENNONG_URL", "https://your-shennong-gateway.example"),
+  token = Sys.getenv("SHENNONG_TOKEN"),
+  project_id = Sys.getenv("SHENNONG_PROJECT_ID", "project-uuid")
 )
 
 sn_api_compatibility(con)
@@ -42,3 +43,8 @@ sn_is_partial(result)
 ```
 
 Use `sn_as()` only after `sn_conversion_plan()` says the target is ready. Use `sn_download_artifact()` or `sn_export()` for large transfers. Do not materialize an unbounded Resource.
+
+Matrix and sparse targets are feature-by-observation. Sparse output requires
+`implicit_zero = TRUE`; analysis containers reject partial DataBundles by
+default. The current TOIL measurement is `log2_tpm_plus_0.001` and is not raw
+counts.

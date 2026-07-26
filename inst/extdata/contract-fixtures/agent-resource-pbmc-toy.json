@@ -34,6 +34,7 @@
           "value_type": "integer",
           "sparse": true,
           "implicit_zero": true,
+          "complete_axes": true,
           "operation": "expression"
         },
         "provenance": {"source": "test"}

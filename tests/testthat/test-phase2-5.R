@@ -140,7 +140,15 @@ test_that("a complete toy count Artifact converts to SingleCellExperiment", {
   testthat::local_mocked_bindings(.sn_perform_json = function(...) fixture, .package = "ShennongData")
   con <- ShennongData:::.sn_new_connection("http://example.test", "pbmc-toy", tempdir(), 60, 3L, 4, NULL)
   x <- sn_load_data("pbmc-toy", connection = con)
-  sce <- sn_as(x, "SingleCellExperiment", source = "artifact", features = c("g1", "g2"), resolve = "never")
+  sce <- sn_as(
+    x,
+    "SingleCellExperiment",
+    source = "artifact",
+    features = c("g1", "g2"),
+    resolve = "never",
+    trusted_local = TRUE,
+    local_root = dirname(path)
+  )
   expect_s4_class(sce, "SingleCellExperiment")
   expect_equal(dim(sce), c(2L, 2L))
   expect_false(is.null(S4Vectors::metadata(sce)$shennong))

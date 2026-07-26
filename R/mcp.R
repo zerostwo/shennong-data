@@ -27,7 +27,8 @@
 }
 
 .sn_mcp_tools <- function() {
-  url <- .sn_mcp_string("Optional ShennongDB base URL; defaults to SHENNONG_URL, SHENNONG_API_URL, or the package default.")
+  url <- .sn_mcp_string("Optional Shennong OS/gateway base URL; defaults to SHENNONG_URL, SHENNONG_API_URL, or the package default.")
+  project_id <- .sn_mcp_string("Optional Shennong project UUID or stable identifier for governed requests.")
   resource <- .sn_mcp_string("Exact ShennongDB Resource identifier returned by list_resources.")
   features <- .sn_mcp_strings("Gene symbols or stable/versioned feature identifiers; at most 20.")
   context <- list(type = "object", description = "Exact Resource-declared context labels.", additionalProperties = TRUE)
@@ -37,29 +38,29 @@
     .sn_mcp_tool(
       "check_compatibility", "Check API compatibility",
       "Negotiate ShennongDB v1 and report which ShennongData discovery, query, pagination, metadata, and streaming contracts are available.",
-      .sn_mcp_schema(list(url = url))
+      .sn_mcp_schema(list(url = url, project_id = project_id))
     ),
     .sn_mcp_tool(
       "list_resources", "List readable Resources",
       "List permission-filtered Resource metadata without loading biological data values.",
-      .sn_mcp_schema(list(url = url, search = .sn_mcp_string("Optional case-insensitive Resource text filter.")))
+      .sn_mcp_schema(list(url = url, project_id = project_id, search = .sn_mcp_string("Optional case-insensitive Resource text filter.")))
     ),
     .sn_mcp_tool(
       "inspect_resource", "Inspect Resource semantics",
       "Inspect one Resource's dimensions, fields, measurements, operations, Artifacts, relations, readiness, and provenance before planning a query.",
-      .sn_mcp_schema(list(url = url, resource = resource), "resource")
+      .sn_mcp_schema(list(url = url, project_id = project_id, resource = resource), "resource")
     ),
     .sn_mcp_tool(
       "resolve_features", "Resolve feature identifiers",
       "Resolve gene symbols or Ensembl identifiers within one Resource and retain original, versioned, and stable identifier provenance.",
-      .sn_mcp_schema(list(url = url, resource = resource, features = features), c("resource", "features"))
+      .sn_mcp_schema(list(url = url, project_id = project_id, resource = resource, features = features), c("resource", "features"))
     ),
     .sn_mcp_tool(
       "plan_query", "Plan a bounded R query",
       "Validate Resource measurement semantics, fields, context, identifiers, and result-size bounds without fetching expression values.",
       .sn_mcp_schema(
         list(
-          url = url, resource = resource, features = features,
+          url = url, project_id = project_id, resource = resource, features = features,
           fields = .sn_mcp_strings("Observation metadata fields declared by the Resource.", 30L),
           context = context, layer = .sn_mcp_string("Exact measurement/layer name declared by the Resource."),
           operation = .sn_mcp_string("Exact query operation declared by the Resource."), limit = limit
@@ -72,7 +73,7 @@
       "Execute a permission-filtered ShennongData query for at most 20 features and 1000 rows per feature, returning provenance and truncation metadata.",
       .sn_mcp_schema(
         list(
-          url = url, resource = resource, features = features,
+          url = url, project_id = project_id, resource = resource, features = features,
           fields = .sn_mcp_strings("Observation metadata fields declared by the Resource.", 30L),
           context = context, layer = .sn_mcp_string("Exact measurement/layer name declared by the Resource."),
           operation = .sn_mcp_string("Exact query operation declared by the Resource."),
@@ -131,7 +132,22 @@
   }
   token <- Sys.getenv("SHENNONG_TOKEN", unset = "")
   if (!nzchar(token)) token <- Sys.getenv("SHENNONG_API_TOKEN", unset = "")
-  sn_connect(url, token = if (nzchar(token)) token else NULL, profile = "mcp", set_default = FALSE)
+  project_id <- .sn_mcp_scalar_argument(
+    arguments,
+    "project_id",
+    default = NULL
+  )
+  if (is.null(project_id)) {
+    configured <- Sys.getenv("SHENNONG_PROJECT_ID", unset = "")
+    if (nzchar(configured)) project_id <- configured
+  }
+  sn_connect(
+    url,
+    token = if (nzchar(token)) token else NULL,
+    profile = "mcp",
+    project_id = project_id,
+    set_default = FALSE
+  )
 }
 
 .sn_mcp_resource_summary <- function(x) {
@@ -233,6 +249,9 @@
       version = values$handle@resource$version,
       options = list(limit = values$limit)
     )
+    if (!is.null(values$connection$project_id)) {
+      request$project_id <- values$connection$project_id
+    }
     return(list(
       executable = TRUE,
       resource = .sn_mcp_resource_summary(values$handle)[c("id", "version", "axes", "measurements", "operations", "supported_context")],
@@ -345,8 +364,10 @@
 #' Run the ShennongData MCP stdio server
 #'
 #' The server reads newline-delimited JSON-RPC from standard input and writes
-#' only MCP messages to standard output. Configure the upstream instance with
-#' `SHENNONG_URL` and an optional `SHENNONG_TOKEN`.
+#' only MCP messages to standard output. Configure the user-facing Shennong
+#' OS/gateway with
+#' `SHENNONG_URL`, an optional `SHENNONG_TOKEN`, and an optional governed
+#' `SHENNONG_PROJECT_ID`.
 #'
 #' @param input Optional input connection. `NULL` opens the process standard input.
 #' @param output Output connection, normally standard output.

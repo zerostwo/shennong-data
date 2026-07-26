@@ -3,3 +3,41 @@ destination: .pkgdown
 
 template:
   bootstrap: 5
+
+articles:
+- title: Contracts
+  contents:
+  - data-materialization-contract
+
+reference:
+- title: Connect and discover
+  contents:
+  - sn_connect
+  - sn_connection
+  - sn_set_connection
+  - sn_disconnect
+  - sn_ping
+  - sn_capabilities
+  - sn_server_version
+  - sn_api_compatibility
+  - sn_resources
+  - sn_load_data
+  - sn_schema
+  - sn_layers
+- title: Query and materialize
+  contents:
+  - sn_resolve_features
+  - sn_slice_head
+  - sn_write_query
+  - sn_fetch_data
+  - sn_download_artifact
+  - sn_conversion_plan
+  - sn_as
+- title: Provenance
+  contents:
+  - sn_provenance
+  - sn_result_schema
+  - sn_is_partial
+- title: Agent integration
+  contents:
+  - sn_mcp_serve

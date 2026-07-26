@@ -16,6 +16,8 @@ sn_mcp_serve(input = NULL, output = stdout())
 }
 \description{
 The server reads newline-delimited JSON-RPC from standard input and writes
-only MCP messages to standard output. Configure the upstream instance with
-\code{SHENNONG_URL} and an optional \code{SHENNONG_TOKEN}.
+only MCP messages to standard output. Configure the user-facing Shennong
+OS/gateway with
+\code{SHENNONG_URL}, an optional \code{SHENNONG_TOKEN}, and an optional governed
+\code{SHENNONG_PROJECT_ID}.
 }

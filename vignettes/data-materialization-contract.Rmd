@@ -1,0 +1,145 @@
+---
+title: "Data materialization contracts"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data materialization contracts}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+ShennongData is a user-facing, read-only client for a Shennong OS or gateway.
+It uses a normal session bearer token and never an administrative key. The
+package discovers a ShennongDB Resource first, then explicitly materializes a
+bounded query or Artifact.
+
+```{r connection}
+con <- sn_connect(
+  Sys.getenv("SHENNONG_URL", "https://your-shennong-gateway.example"),
+  token = Sys.getenv("SHENNONG_TOKEN"),
+  project_id = Sys.getenv("SHENNONG_PROJECT_ID", "project-uuid")
+)
+```
+
+With a Project scope, authenticated same-origin requests carry
+`X-Shennong-Project-Id`, and query bodies include `project_id` as a gateway
+compatibility bridge. A direct DB/public connection remains compatible when
+`project_id = NULL`.
+
+## DataBundle provenance
+
+Every materialized result records the target contract
+`shennong.dev/data-bundle/v1`. This does not mean every current ShennongDB
+Resource already emits a complete DataBundle:
+
+- `status = "resource_declared"` means Resource metadata declared
+  `schema_version = "shennong.dev/data-bundle/v1"`;
+- `status = "client_projection"` means ShennongData projected the current
+  Resource/query response into the target contract;
+- `complete`, `axis_complete`, `missing_features`, and
+  `incomplete_reasons` describe whether the projection is safe to consume as a
+  complete matrix.
+
+The analysis package uses a different output contract,
+`shennong.dev/analysis-result-bundle/v1`. ShennongData produces input data and
+provenance; a public Shennong analysis function produces and validates the
+analysis result.
+
+```{r provenance}
+result <- sn_fetch_data(
+  x,
+  features = c("YTHDF2", "FTO"),
+  layer = "log2_tpm_plus_0.001",
+  shape = "long",
+  limit = 100
+)
+
+sn_result_schema(result)
+sn_provenance(result)$data_bundle
+sn_is_partial(result)
+```
+
+## Shape and zero semantics
+
+The four shapes have explicit contracts:
+
+| Shape | Orientation | Missing coordinate |
+| --- | --- | --- |
+| `long` | one feature-observation coordinate per row | remains absent |
+| `wide` | observations by selected values | remains missing |
+| `matrix` | features by observations | zero only when `implicit_zero = TRUE`; otherwise `NA` |
+| `sparse` | features by observations (`dgCMatrix`) | structural zero only when `implicit_zero = TRUE` |
+
+For matrix and sparse requests, the client fetches the complete observation
+axis when the server advertises the axis endpoint. Without a complete axis,
+all-zero observations cannot be recovered, so the result is marked partial.
+Batch `missing_features` metadata is also retained as incomplete provenance.
+Explicit zero entries are removed from a sparse matrix with `Matrix::drop0()`.
+
+```{r matrices}
+dense <- sn_fetch_data(
+  x,
+  features = c("gene-a", "gene-b"),
+  layer = "counts",
+  shape = "matrix"
+)
+
+sparse <- sn_fetch_data(
+  x,
+  features = c("gene-a", "gene-b"),
+  layer = "counts",
+  shape = "sparse"
+)
+```
+
+## Analysis containers
+
+`sn_as()` supports explicit `matrix` and `sparse` targets and preserves the
+same provenance in SummarizedExperiment metadata or Seurat `misc`. Analysis
+containers reject partial inputs by default. `allow_partial = TRUE` is an
+escape hatch for a user who has reviewed the incomplete reasons; it is not a
+completeness assertion.
+
+```{r containers}
+se <- sn_as(
+  x,
+  "SummarizedExperiment",
+  features = c("YTHDF2", "FTO"),
+  layer = "log2_tpm_plus_0.001"
+)
+
+S4Vectors::metadata(se)$shennong$data_bundle
+```
+
+The current TOIL layer is exactly `log2_tpm_plus_0.001`. It is transformed
+expression, not raw counts, so it is suitable for bulk QC but not for
+DESeq2/edgeR count workflows:
+
+```{r shennong-consumer}
+bulk_qc <- Shennong::sn_run_bulk(se, workflow = "qc")
+Shennong::sn_validate_result(bulk_qc, error = FALSE)$valid
+```
+
+## Artifact trust boundary
+
+Same-origin Artifact endpoints may receive the connection bearer token. A
+foreign presigned URL never receives it, must use HTTPS, and is followed only
+through bounded, manually reconstructed redirects. Automatic credential
+forwarding is disabled.
+
+Local paths and `file://` URIs are ignored by default. Trusted-local access
+requires both `trusted_local = TRUE` and a `local_root`; normalized paths and
+symlink targets must remain under that root.
+
+```{r trusted-local}
+sn_download_artifact(
+  x,
+  artifact = "local-expression",
+  path = tempfile(fileext = ".tsv"),
+  trusted_local = TRUE,
+  local_root = "/srv/shennong/approved-artifacts"
+)
+```

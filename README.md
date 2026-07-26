@@ -25,15 +25,17 @@ remotes::install_github("zerostwo/shennong-data")
 
 ## Basic usage
 
-Connect to a ShennongDB server and create a metadata-only resource
-handle:
+In production, connect to the user-facing Shennong OS/gateway with a
+personal access token (PAT) and the governed Project scope. Do not use a
+database admin key:
 
 ``` r
 library(ShennongData)
 
 con <- sn_connect(
-  "https://your-shennongdb.example",
-  token = Sys.getenv("SHENNONG_TOKEN")
+  Sys.getenv("SHENNONG_URL", "https://your-shennong-gateway.example"),
+  token = Sys.getenv("SHENNONG_TOKEN"),
+  project_id = Sys.getenv("SHENNONG_PROJECT_ID", "project-uuid")
 )
 
 x <- sn_load_data("toil", connection = con)
@@ -64,6 +66,30 @@ sn_fetch_data(
 sn_artifacts(x)
 ```
 
+Matrix and container materializations carry the target
+`shennong.dev/data-bundle/v1` provenance contract. Current Resources
+that do not yet declare the full contract are explicitly labeled
+`client_projection`; missing axes and batch `missing_features` remain
+visible as partial provenance. Sparse output is available only for
+measurements declaring `implicit_zero = TRUE`.
+
+``` r
+counts <- sn_fetch_data(
+  x,
+  features = c("gene-a", "gene-b"),
+  layer = "counts",
+  shape = "sparse"
+)
+
+sn_result_schema(counts)
+sn_provenance(counts)$data_bundle
+```
+
+See the [data materialization
+contract](vignettes/data-materialization-contract.Rmd) for matrix
+orientation, zero semantics, Artifact trust boundaries, and the public
+Shennong bulk-QC handoff.
+
 ## Agent and MCP integration
 
 Check the live API contract and discover visible Resources from R:
@@ -76,7 +102,7 @@ sn_resources(con, search = "bulk")
 The package also includes a read-only stdio MCP server:
 
 ``` sh
-SHENNONG_URL=http://127.0.0.1:18080 \
+SHENNONG_URL=http://127.0.0.1:18081 \
   Rscript -e 'ShennongData::sn_mcp_serve()'
 ```
 

@@ -7,6 +7,49 @@
 
 .sn_chr <- function(x) unname(as.character(unlist(x, use.names = FALSE)))
 
+.sn_data_bundle_contract <- "shennong.dev/data-bundle/v1"
+
+.sn_normalize_data_bundle <- function(metadata) {
+  bundle <- metadata$data_bundle %||% NULL
+  if (is.null(bundle)) return(NULL)
+  if (!is.list(bundle)) {
+    stop(
+      "Malformed ShennongDB Resource response: `metadata$data_bundle` must be an object.",
+      call. = FALSE
+    )
+  }
+  contract <- bundle$schema_version %||% bundle$contract %||% NULL
+  if (!identical(contract, .sn_data_bundle_contract)) {
+    stop(
+      "Unsupported Resource DataBundle contract: ",
+      contract %||% "<missing>",
+      ".",
+      call. = FALSE
+    )
+  }
+  bundle$schema_version <- .sn_data_bundle_contract
+  bundle
+}
+
+.sn_data_bundle_base <- function(resource, source_contract) {
+  declared <- resource$data_bundle %||% NULL
+  if (is.null(declared)) {
+    return(list(
+      contract = .sn_data_bundle_contract,
+      status = "client_projection",
+      source_contract = source_contract
+    ))
+  }
+  utils::modifyList(
+    declared,
+    list(
+      contract = .sn_data_bundle_contract,
+      status = "resource_declared",
+      source_contract = source_contract
+    )
+  )
+}
+
 .sn_dimensions <- function(metadata) {
   dimensions <- metadata$dimensions %||% list()
   feature_size <- dimensions$features %||% dimensions$feature %||% NA_integer_
@@ -73,7 +116,9 @@
     feature_fields = .sn_field_record(feature_names[!is.na(feature_names)], "identifier"),
     measurements = .sn_measurements(resource), operations = .sn_chr(resource$spec$operations),
     supported_context = supported_context,
-    analysis_readiness = metadata$analysis_capabilities %||% list(), artifacts = artifacts,
+    analysis_readiness = metadata$analysis_capabilities %||% list(),
+    data_bundle = .sn_normalize_data_bundle(metadata),
+    artifacts = artifacts,
     relations = resource$relations %||% list(), provenance = resource$provenance %||% list(),
     permissions = resource$permissions %||% list(), raw = detail
   )

@@ -1,12 +1,5 @@
 \name{ShennongData}
 \alias{ShennongData}
-\alias{sn_connect}
-\alias{sn_connection}
-\alias{sn_set_connection}
-\alias{sn_disconnect}
-\alias{sn_ping}
-\alias{sn_capabilities}
-\alias{sn_server_version}
 \alias{sn_server_url}
 \alias{sn_load_data}
 \alias{sn_obs}
@@ -18,18 +11,14 @@
 \alias{ShennongCollection}
 \alias{sn_artifact}
 \alias{sn_artifacts}
-\alias{sn_as}
 \alias{sn_cache_ids}
 \alias{sn_collect_metadata}
 \alias{sn_collection}
 \alias{sn_collection_resources}
-\alias{sn_conversion_plan}
 \alias{sn_convert}
-\alias{sn_download_artifact}
 \alias{sn_explain}
 \alias{sn_export}
 \alias{sn_feature_ids}
-\alias{sn_fetch_data}
 \alias{sn_is_partial}
 \alias{sn_layers}
 \alias{sn_link_features}
@@ -55,9 +44,6 @@
 \title{Metadata-first ShennongDB Resource handles}
 \description{Connect to ShennongDB, discover a Resource, and select a metadata or assay view without materializing data values.}
 \usage{
-sn_connect(url = sn_server_url(), token = NULL, profile = "default",
-  cache_dir = tools::R_user_dir("ShennongData", "cache"), timeout = 60,
-  retries = 3L, throttle = 4, user_agent = NULL, set_default = TRUE)
 sn_load_data(resource, version = NULL,
   view = c("auto", "observations", "assay", "resource"),
   connection = sn_connection(), refresh = FALSE,
@@ -67,15 +53,6 @@ sn_var(x)
 sn_assay(x, assay = NULL, layer = NULL)
 }
 \arguments{
-  \item{url}{ShennongDB base URL.}
-  \item{token}{A session-only bearer token.}
-  \item{profile}{Authentication profile name.}
-  \item{cache_dir}{Metadata cache directory.}
-  \item{timeout}{Request timeout in seconds.}
-  \item{retries}{Maximum retry attempts.}
-  \item{throttle}{Maximum requests per second.}
-  \item{user_agent}{Optional user-agent string.}
-  \item{set_default}{Whether to use the connection by default.}
   \item{resource}{A Resource ID.}
   \item{version}{Optional Resource version.}
   \item{view}{The Resource view to return.}
@@ -90,7 +67,7 @@ sn_assay(x, assay = NULL, layer = NULL)
 \value{A \code{ShennongData} handle or its requested metadata.}
 \examples{
 \dontrun{
-sn_connect("http://127.0.0.1:8000")
+sn_connect("http://127.0.0.1:18081")
 toil <- sn_load_data("toil")
 dim(toil)
 dim(sn_assay(toil))

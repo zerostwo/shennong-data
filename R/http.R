@@ -18,7 +18,7 @@ sn_server_url <- function(url = NULL) {
   if (nzchar(env_url)) {
     return(.sn_normalize_url(env_url))
   }
-  "http://127.0.0.1:8000"
+  "http://127.0.0.1:18081"
 }
 
 sn_session_token <- function() {
@@ -89,6 +89,12 @@ sn_request <- function(connection, path, method = "GET", body = NULL,
   )
   if (identical(auth, "user") && !is.null(token)) {
     req <- httr2::req_headers(req, Authorization = paste("Bearer", token), .redact = "Authorization")
+  }
+  if (identical(auth, "user") && !is.null(connection$project_id)) {
+    req <- httr2::req_headers(
+      req,
+      `X-Shennong-Project-Id` = connection$project_id
+    )
   }
   if (identical(auth, "admin")) stop("Admin requests are not part of ShennongData.", call. = FALSE)
   req

@@ -1,15 +1,36 @@
 .sn_connection_registry <- new.env(parent = emptyenv())
 .sn_token_registry <- new.env(parent = emptyenv())
 
-.sn_connection_key <- function(connection) {
-  paste(connection$profile, connection$base_url, sep = "@")
+.sn_validate_project_id <- function(project_id) {
+  if (is.null(project_id)) return(NULL)
+  if (!is.character(project_id) || length(project_id) != 1L ||
+      is.na(project_id) || !nzchar(project_id) ||
+      nchar(project_id, type = "bytes") > 255L ||
+      !grepl("^[A-Za-z0-9][A-Za-z0-9._:-]*$", project_id)) {
+    stop(
+      "`project_id` must be NULL or a non-empty UUID/stable identifier using letters, digits, `.`, `_`, `:`, or `-`.",
+      call. = FALSE
+    )
+  }
+  project_id
 }
 
-.sn_new_connection <- function(url, profile, cache_dir, timeout, retries, throttle, user_agent) {
+.sn_connection_key <- function(connection) {
+  paste(
+    connection$profile,
+    connection$base_url,
+    connection$project_id %||% "<no-project>",
+    sep = "@"
+  )
+}
+
+.sn_new_connection <- function(url, profile, cache_dir, timeout, retries, throttle,
+                               user_agent, project_id = NULL) {
   structure(
     list(
       base_url = .sn_normalize_url(url),
       profile = profile,
+      project_id = .sn_validate_project_id(project_id),
       api_version = NULL,
       server_version = NULL,
       capabilities = NULL,
@@ -78,9 +99,12 @@
 
 #' Connect to ShennongDB
 #'
-#' @param url ShennongDB base URL.
+#' @param url User-facing Shennong OS/gateway base URL. An explicit public or
+#'   direct ShennongDB URL remains supported.
 #' @param token Session-only bearer token; it is never stored in the returned object.
 #' @param profile Authentication profile name.
+#' @param project_id Optional Shennong project UUID or stable identifier used
+#'   to scope governed gateway requests.
 #' @param cache_dir Metadata cache directory.
 #' @param timeout Request timeout in seconds.
 #' @param retries Maximum retry attempts.
@@ -89,6 +113,7 @@
 #' @param set_default Whether to register this as the default connection.
 #' @export
 sn_connect <- function(url = sn_server_url(), token = NULL, profile = "default",
+                       project_id = NULL,
                        cache_dir = tools::R_user_dir("ShennongData", "cache"),
                        timeout = 60, retries = 3L, throttle = 4,
                        user_agent = NULL, set_default = TRUE) {
@@ -98,6 +123,7 @@ sn_connect <- function(url = sn_server_url(), token = NULL, profile = "default",
   if (!is.null(token) && (!is.character(token) || length(token) != 1L || !nzchar(token))) {
     stop("`token` must be NULL or a single non-empty string.", call. = FALSE)
   }
+  project_id <- .sn_validate_project_id(project_id)
   if (!is.numeric(timeout) || length(timeout) != 1L || timeout <= 0) {
     stop("`timeout` must be a positive number.", call. = FALSE)
   }
@@ -107,7 +133,16 @@ sn_connect <- function(url = sn_server_url(), token = NULL, profile = "default",
   if (!is.numeric(throttle) || length(throttle) != 1L || throttle <= 0) {
     stop("`throttle` must be a positive number.", call. = FALSE)
   }
-  connection <- .sn_new_connection(url, profile, cache_dir, timeout, retries, throttle, user_agent)
+  connection <- .sn_new_connection(
+    url,
+    profile,
+    cache_dir,
+    timeout,
+    retries,
+    throttle,
+    user_agent,
+    project_id = project_id
+  )
   if (!is.null(token)) assign(.sn_connection_key(connection), token, envir = .sn_token_registry)
   connection <- .sn_negotiate(connection)
   if (isTRUE(set_default)) sn_set_connection(connection)
@@ -115,6 +150,8 @@ sn_connect <- function(url = sn_server_url(), token = NULL, profile = "default",
 }
 
 #' Return the default ShennongDB connection
+#'
+#' @return The current default ShennongDB connection.
 #' @export
 sn_connection <- function() {
   if (exists("default", envir = .sn_connection_registry, inherits = FALSE)) {
@@ -124,6 +161,9 @@ sn_connection <- function() {
 }
 
 #' Set the default ShennongDB connection
+#'
+#' @param connection A ShennongDB connection.
+#' @return `connection`, invisibly.
 #' @export
 sn_set_connection <- function(connection) {
   .sn_check_connection(connection)
@@ -132,6 +172,9 @@ sn_set_connection <- function(connection) {
 }
 
 #' Remove a session ShennongDB connection
+#'
+#' @param connection A ShennongDB connection.
+#' @return `NULL`, invisibly.
 #' @export
 sn_disconnect <- function(connection = sn_connection()) {
   .sn_check_connection(connection)
@@ -145,6 +188,9 @@ sn_disconnect <- function(connection = sn_connection()) {
 }
 
 #' Ping ShennongDB
+#'
+#' @param connection A ShennongDB connection.
+#' @return The server version response.
 #' @export
 sn_ping <- function(connection = sn_connection()) {
   .sn_check_connection(connection)
@@ -156,6 +202,10 @@ sn_ping <- function(connection = sn_connection()) {
 }
 
 #' Return negotiated ShennongDB capabilities
+#'
+#' @param connection A ShennongDB connection.
+#' @param refresh Whether to renegotiate capabilities.
+#' @return The negotiated capabilities.
 #' @export
 sn_capabilities <- function(connection = sn_connection(), refresh = FALSE) {
   .sn_check_connection(connection)
@@ -164,6 +214,9 @@ sn_capabilities <- function(connection = sn_connection(), refresh = FALSE) {
 }
 
 #' Return the negotiated ShennongDB server version
+#'
+#' @param connection A ShennongDB connection.
+#' @return The server version string, or `NULL` when unavailable.
 #' @export
 sn_server_version <- function(connection = sn_connection()) {
   .sn_check_connection(connection)

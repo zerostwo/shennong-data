@@ -70,6 +70,17 @@
   resolved
 }
 
+#' Resolve feature identifiers for a ShennongDB Resource
+#'
+#' @param x A [ShennongData] handle.
+#' @param features Feature identifiers or symbols to resolve.
+#' @param resources Reserved for multi-Resource compatibility. Resolution is
+#'   scoped to `x`.
+#' @param strict Whether unresolved or ambiguous identifiers are errors.
+#' @param canonical Canonical identifier namespace requested by the client.
+#' @return A list preserving input, original, resolved, stable, and symbol
+#'   identifiers.
+#' @export
 sn_resolve_features <- function(x, features, resources = NULL, strict = TRUE,
                                 canonical = "ensembl_gene_stable_id") {
   if (!S7::S7_inherits(x, ShennongData)) stop("`x` must be a ShennongData handle.", call. = FALSE)
@@ -132,15 +143,41 @@ sn_resolve_features <- function(x, features, resources = NULL, strict = TRUE,
     if (page == max_pages) stop("Query exceeded the cursor page limit; narrow the request or use an Artifact.", call. = FALSE)
   }
   data <- do.call(rbind, lapply(pages, .sn_query_row_data, feature = feature))
-  attr(data, "shennong_pages") <- length(pages); data
+  page_meta <- lapply(pages, function(response) {
+    outer <- response$data %||% response
+    outer$meta %||% list()
+  })
+  missing_features <- unique(unname(as.character(unlist(
+    lapply(page_meta, function(meta) meta$missing_features %||% character()),
+    use.names = FALSE
+  ))))
+  attr(data, "shennong_pages") <- length(pages)
+  attr(data, "shennong_missing_features") <- missing_features
+  data
 }
 
 .sn_as_result <- function(data, x, plan, provenance, partial = FALSE) {
-  if (requireNamespace("tibble", quietly = TRUE)) data <- tibble::as_tibble(data)
-  class(data) <- unique(c("shennong_result", class(data)))
+  matrix_like <- is.matrix(data) || inherits(data, "Matrix")
+  if (!matrix_like && requireNamespace("tibble", quietly = TRUE)) {
+    data <- tibble::as_tibble(data)
+  }
+  if (!inherits(data, "Matrix")) {
+    class(data) <- unique(c(
+      if (matrix_like) "shennong_matrix" else "shennong_result",
+      class(data)
+    ))
+  }
   attr(data, "shennong_query") <- plan
   attr(data, "shennong_provenance") <- provenance
-  attr(data, "shennong_schema") <- list(shape = plan$shape %||% "long", columns = names(data))
+  data_bundle <- provenance$data_bundle %||% list()
+  attr(data, "shennong_schema") <- list(
+    contract = data_bundle$contract %||% "shennong.dev/data-bundle/v1",
+    contract_status = data_bundle$status %||% "client_projection",
+    shape = plan$shape %||% "long",
+    orientation = data_bundle$orientation %||% if (matrix_like) "feature_by_observation" else "long",
+    columns = if (matrix_like) colnames(data) else names(data),
+    complete = data_bundle$complete %||% !isTRUE(partial)
+  )
   attr(data, "shennong_partial") <- isTRUE(partial)
   attr(data, "shennong_resource") <- list(id = x@resource$id, version = x@resource$version)
   data
@@ -150,7 +187,13 @@ sn_provenance <- function(x) attr(x, "shennong_provenance")
 sn_result_schema <- function(x) attr(x, "shennong_schema")
 sn_is_partial <- function(x) isTRUE(attr(x, "shennong_partial"))
 sn_resource_ref <- function(x) attr(x, "shennong_resource")
+.sn_is_result <- function(x) {
+  inherits(x, "shennong_result") ||
+    inherits(x, "shennong_matrix") ||
+    !is.null(attr(x, "shennong_query"))
+}
 
+#' @exportS3Method
 print.shennong_result <- function(x, ...) {
   p <- sn_provenance(x) %||% list(resource = list(), layer = NULL)
   cat("<shennong_result>\nResource: ", p$resource$id %||% "unknown", "@", p$resource$version %||% "current", " | layer: ", p$layer %||% "unknown", "\n", sep = "")
@@ -158,6 +201,37 @@ print.shennong_result <- function(x, ...) {
   NextMethod("print")
 }
 
+#' Materialize a bounded ShennongDB query
+#'
+#' Results carry `shennong.dev/data-bundle/v1` provenance. Until a Resource
+#' explicitly declares that contract, the result is labeled
+#' `client_projection`. Matrix-like results are feature-by-observation.
+#' Sparse materialization is permitted only when the measurement declares
+#' `implicit_zero = TRUE`; declared observation axes are fetched when the
+#' server supports them, and missing axes or features are reported as partial
+#' provenance.
+#'
+#' @param x A [ShennongData] handle.
+#' @param features A bounded feature identifier vector.
+#' @param observations Reserved; observation selection is not supported by the
+#'   current server query contract.
+#' @param fields Observation metadata fields to retain.
+#' @param context Named exact context filters.
+#' @param assay Optional assay name.
+#' @param layer Exact declared measurement name, for example
+#'   `log2_tpm_plus_0.001` for the current TOIL Resource.
+#' @param operation Optional declared server operation.
+#' @param shape Output shape: long, wide, dense matrix, or sparse `dgCMatrix`.
+#' @param resolve Feature-resolution policy.
+#' @param source Query, Artifact, or automatic source selection.
+#' @param limit Optional per-feature query bound.
+#' @param allow_large Whether to bypass configured size guards.
+#' @param cache Reserved for compatible cache implementations.
+#' @param fail_fast Whether the first feature request failure stops the query.
+#' @param ... Additional Artifact materialization controls, including
+#'   `trusted_local` and `local_root`.
+#' @return A provenance-aware materialized result.
+#' @export
 sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL,
                           context = NULL, assay = NULL, layer = NULL,
                           operation = NULL, shape = c("long", "wide", "matrix", "sparse"),
@@ -191,19 +265,47 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
   batch <- isTRUE(x@connection$capabilities$batch_features) || "expression_batch" %in% (x@connection$capabilities$query_operations %||% character())
   requests <- lapply(resolved, function(feature) {
     options <- list(); if (!is.null(n_limit)) options$limit <- as.integer(n_limit)
-    list(resource = x@resource$id, operation = operation,
-         feature = list(type = "gene", name = feature$resolved_id),
-         context = if (length(ctx)) ctx else NULL, version = x@resource$version, options = options)
+    request <- list(resource = x@resource$id, operation = operation,
+                    feature = list(type = "gene", name = feature$resolved_id),
+                    context = if (length(ctx)) ctx else NULL,
+                    version = x@resource$version, options = options)
+    if (!is.null(x@connection$project_id)) {
+      request$project_id <- x@connection$project_id
+    }
+    request
   })
-  if (batch) requests <- list(list(resource = x@resource$id, operation = operation,
-                                   features = lapply(resolved, function(feature) list(type = "gene", name = feature$resolved_id)),
-                                   context = if (length(ctx)) ctx else NULL, version = x@resource$version,
-                                   options = if (is.null(n_limit)) list() else list(limit = as.integer(n_limit))))
+  if (batch) {
+    request <- list(
+      resource = x@resource$id,
+      operation = operation,
+      features = lapply(
+        resolved,
+        function(feature) list(type = "gene", name = feature$resolved_id)
+      ),
+      context = if (length(ctx)) ctx else NULL,
+      version = x@resource$version,
+      options = if (is.null(n_limit)) {
+        list()
+      } else {
+        list(limit = as.integer(n_limit))
+      }
+    )
+    if (!is.null(x@connection$project_id)) {
+      request$project_id <- x@connection$project_id
+    }
+    requests <- list(request)
+  }
   rows <- vector("list", length(requests)); failures <- list()
   for (i in seq_along(requests)) {
     rows[[i]] <- tryCatch(.sn_query_pages(x, requests[[i]], if (batch) resolved else resolved[[i]], path = if (batch) "query_batch" else "query"), error = function(e) { failures[[length(failures) + 1L]] <<- list(feature = if (batch) resolved else resolved[[i]], error = conditionMessage(e)); NULL })
     if (length(failures) && isTRUE(fail_fast)) stop(failures[[1L]]$error, call. = FALSE)
   }
+  missing_features <- unique(unname(as.character(unlist(
+    lapply(Filter(Negate(is.null), rows), function(row) {
+      attr(row, "shennong_missing_features") %||% character()
+    }),
+    use.names = FALSE
+  ))))
   data <- do.call(rbind, Filter(Negate(is.null), rows)); if (is.null(data)) data <- data.frame()
   if (nrow(data)) {
     if (!"feature" %in% names(data)) data$feature <- vapply(resolved, .sn_feature_name, character(1))[seq_len(min(nrow(data), length(resolved)))]
@@ -215,11 +317,105 @@ sn_fetch_data <- function(x, features = NULL, observations = NULL, fields = NULL
     }
   }
   plan <- .sn_empty_query(x); plan$feature_selection <- resolved; plan$field_selection <- fields; plan$observation_predicate <- x@query$observation_predicate; plan$context <- ctx; plan$layer <- measurement$name; plan$operation <- operation; plan$shape <- shape; plan$limit <- n_limit
+  observed_ids <- if (nrow(data) && "observation_id" %in% names(data)) {
+    unique(as.character(data$observation_id))
+  } else {
+    character()
+  }
+  observation_ids <- get0(
+    "observation_ids",
+    envir = x@cache,
+    inherits = FALSE,
+    ifnotfound = NULL
+  )
+  axis_error <- NULL
+  needs_matrix_axis <- shape %in% c("matrix", "sparse")
+  if (needs_matrix_axis && is.null(observation_ids) && !length(ctx) &&
+      isTRUE(sn_server_features(.sn_connection_from_handle(x))$axes)) {
+    observation_ids <- tryCatch(
+      sn_observation_ids(x),
+      error = function(error) {
+        axis_error <<- conditionMessage(error)
+        NULL
+      }
+    )
+  }
+  axis_complete <- !is.null(observation_ids) && !length(ctx)
+  implicit_zero <- isTRUE(measurement$spec$implicit_zero)
+  sparse_measurement <- isTRUE(measurement$spec$sparse)
+  incomplete_reasons <- character()
+  if (length(failures)) incomplete_reasons <- c(incomplete_reasons, "request_failure")
+  if (length(missing_features)) {
+    incomplete_reasons <- c(incomplete_reasons, "missing_features")
+  }
+  if ((needs_matrix_axis || sparse_measurement) && !axis_complete) {
+    incomplete_reasons <- c(incomplete_reasons, "observation_axis_incomplete")
+  }
+  if (!is.null(axis_error)) {
+    incomplete_reasons <- c(incomplete_reasons, "observation_axis_fetch_failed")
+  }
+  query_limit_incomplete <- !is.null(n_limit) && !is.null(observation_ids) &&
+    as.numeric(n_limit) < length(observation_ids)
+  if (query_limit_incomplete) {
+    incomplete_reasons <- c(incomplete_reasons, "query_limit")
+  }
+  if (shape == "sparse" && !implicit_zero) {
+    stop(
+      "Sparse materialization requires `implicit_zero = TRUE`; otherwise missing coordinates cannot be distinguished from zero.",
+      call. = FALSE
+    )
+  }
+  if (shape == "sparse" && query_limit_incomplete) {
+    stop(
+      "Sparse materialization cannot represent a query limit below the declared observation axis; remove `limit` or request `shape = \"matrix\"`.",
+      call. = FALSE
+    )
+  }
+  matrix_observation_ids <- if (query_limit_incomplete) {
+    observed_ids
+  } else {
+    observation_ids %||% observed_ids
+  }
+  matrix_implicit_zero <- implicit_zero && !query_limit_incomplete
   if (shape == "wide" && nrow(data)) data <- .sn_long_to_wide(data)
-  if (shape %in% c("matrix", "sparse")) data <- .sn_long_to_matrix(data, resolved, sparse = shape == "sparse")
-  nonzero_subset <- isTRUE(measurement$spec$sparse) && !isTRUE(measurement$spec$implicit_zero) && identical(source, "query")
-  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), layer = measurement$name, operation = operation, context = ctx, feature_map = resolved, requests = requests, pages = sum(vapply(rows, function(z) attr(z, "shennong_pages") %||% 0L, integer(1))), failures = failures, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), timestamp = format(Sys.time(), tz = "UTC"), nonzero_subset = nonzero_subset, partial = length(failures) > 0L || nonzero_subset)
-  .sn_as_result(data, x, plan, provenance, partial = length(failures) > 0L || nonzero_subset)
+  if (shape %in% c("matrix", "sparse")) {
+    data <- .sn_long_to_matrix(
+      data,
+      resolved,
+      sparse = shape == "sparse",
+      implicit_zero = matrix_implicit_zero,
+      observation_ids = matrix_observation_ids
+    )
+    if (shape == "matrix" && anyNA(data)) {
+      incomplete_reasons <- c(incomplete_reasons, "missing_coordinates")
+    }
+  }
+  incomplete_reasons <- unique(incomplete_reasons)
+  partial <- length(incomplete_reasons) > 0L
+  data_bundle <- utils::modifyList(
+    .sn_data_bundle_base(x@resource, "shennongdb-v1-resource-query"),
+    list(
+    complete = !partial,
+    axis_complete = axis_complete,
+    orientation = if (shape %in% c("matrix", "sparse")) {
+      "feature_by_observation"
+    } else {
+      shape
+    },
+    shape = shape,
+    layer = measurement$name,
+    measurement = measurement$spec,
+    implicit_zero = implicit_zero,
+    feature_ids = vapply(resolved, .sn_feature_name, character(1)),
+    observation_ids = observation_ids %||% observed_ids,
+    missing_features = missing_features,
+    incomplete_reasons = incomplete_reasons,
+    axis_error = axis_error
+    )
+  )
+  nonzero_subset <- sparse_measurement && !axis_complete
+  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), project_id = x@connection$project_id, layer = measurement$name, operation = operation, context = ctx, feature_map = resolved, requests = requests, pages = sum(vapply(rows, function(z) attr(z, "shennong_pages") %||% 0L, integer(1))), failures = failures, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), timestamp = format(Sys.time(), tz = "UTC"), nonzero_subset = nonzero_subset, partial = partial, data_bundle = data_bundle)
+  .sn_as_result(data, x, plan, provenance, partial = partial)
 }
 
 sn_stream_data <- function(x, features = NULL, fields = NULL, context = NULL,
@@ -238,6 +434,9 @@ sn_stream_data <- function(x, features = NULL, fields = NULL, context = NULL,
                features = lapply(resolved, function(z) list(type = "gene", name = z$resolved_id)),
                context = .sn_context_merge(x, context), version = x@resource$version,
                options = list(format = format, fields = fields %||% character()))
+  if (!is.null(x@connection$project_id)) {
+    body$project_id <- x@connection$project_id
+  }
   req <- sn_request(x@connection, .sn_endpoint("query_stream"), method = "POST", body = body)
   req <- httr2::req_headers(req, Accept = if (format == "arrow") "application/vnd.apache.arrow.stream" else "application/x-ndjson")
   response <- .sn_perform_raw(req, retries = x@connection$retries, throttle = x@connection$throttle)
@@ -259,12 +458,69 @@ sn_stream_data <- function(x, features = NULL, fields = NULL, context = NULL,
   out
 }
 
-.sn_long_to_matrix <- function(data, resolved, sparse = FALSE) {
-  if (!nrow(data)) return(matrix(numeric(), nrow = 0L, ncol = 0L))
-  obs <- unique(data$observation_id %||% data[[1L]]); feats <- vapply(resolved, .sn_feature_name, character(1))
-  mat <- matrix(NA_real_, nrow = length(feats), ncol = length(obs), dimnames = list(feats, obs))
-  for (i in seq_len(nrow(data))) mat[match(data$feature[[i]], feats), match(data$observation_id[[i]], obs)] <- data$value[[i]]
-  if (sparse && requireNamespace("Matrix", quietly = TRUE)) Matrix::Matrix(mat, sparse = TRUE) else mat
+.sn_long_to_matrix <- function(data, resolved, sparse = FALSE,
+                               implicit_zero = FALSE,
+                               observation_ids = NULL) {
+  feats <- vapply(resolved, .sn_feature_name, character(1))
+  if (anyDuplicated(feats)) {
+    stop("Matrix materialization requires unique resolved feature identifiers.", call. = FALSE)
+  }
+  observed <- if (nrow(data)) {
+    as.character(data$observation_id %||% data[[1L]])
+  } else {
+    character()
+  }
+  obs <- if (is.null(observation_ids)) unique(observed) else as.character(observation_ids)
+  if (anyDuplicated(obs)) {
+    stop("Matrix materialization requires unique observation identifiers.", call. = FALSE)
+  }
+  if (!all(observed %in% obs)) {
+    stop("Query returned observations outside the declared observation axis.", call. = FALSE)
+  }
+  feature <- if (nrow(data)) {
+    as.character(data$feature %||% data$feature_id)
+  } else {
+    character()
+  }
+  if (!all(feature %in% feats)) {
+    stop("Query returned features outside the requested feature axis.", call. = FALSE)
+  }
+  if (nrow(data) && anyDuplicated(paste(feature, observed, sep = "\r"))) {
+    stop("Query returned duplicate feature/observation coordinates.", call. = FALSE)
+  }
+
+  if (isTRUE(sparse)) {
+    if (!isTRUE(implicit_zero)) {
+      stop(
+        "Sparse materialization requires `implicit_zero = TRUE`.",
+        call. = FALSE
+      )
+    }
+    if (!requireNamespace("Matrix", quietly = TRUE)) {
+      stop("Package `Matrix` is required for sparse materialization.", call. = FALSE)
+    }
+    mat <- Matrix::sparseMatrix(
+      i = match(feature, feats),
+      j = match(observed, obs),
+      x = as.numeric(data$value %||% numeric()),
+      dims = c(length(feats), length(obs)),
+      dimnames = list(feats, obs),
+      giveCsparse = TRUE
+    )
+    return(Matrix::drop0(mat))
+  }
+
+  fill <- if (isTRUE(implicit_zero)) 0 else NA_real_
+  mat <- matrix(
+    fill,
+    nrow = length(feats),
+    ncol = length(obs),
+    dimnames = list(feats, obs)
+  )
+  if (nrow(data)) {
+    mat[cbind(match(feature, feats), match(observed, obs))] <- as.numeric(data$value)
+  }
+  mat
 }
 
 sn_collect_metadata <- function(x, fields = NULL, limit = NULL, cursor = NULL) {
@@ -283,14 +539,16 @@ sn_collect_metadata <- function(x, fields = NULL, limit = NULL, cursor = NULL) {
   } else data <- data.frame()
   plan <- .sn_empty_query(x); plan$field_selection <- fields; plan$shape <- "metadata"; plan$limit <- limit %||% x@query$limit
   meta <- payload$meta %||% list()
-  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), source = "metadata_view", fields = fields, meta = meta, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), partial = !is.null(meta$next_cursor))
+  provenance <- list(resource = list(id = x@resource$id, version = x@resource$version), project_id = x@connection$project_id, source = "metadata_view", fields = fields, meta = meta, server = list(url = x@connection$base_url, api = x@connection$api_version %||% "v1"), partial = !is.null(meta$next_cursor))
   .sn_as_result(data, x, plan, provenance, partial = !is.null(meta$next_cursor))
 }
 
+#' @exportS3Method
 collect.ShennongData <- function(x, ..., shape = "long", allow_large = FALSE) {
   if (identical(x@view, "observations") && isTRUE(x@connection$capabilities$metadata_views) && is.null(list(...)$features)) return(sn_collect_metadata(x, ...))
   sn_fetch_data(x, shape = shape, allow_large = allow_large, ...)
 }
+#' @exportS3Method
 collect.shennong_result <- function(x, ...) x
 collect <- function(x, ...) UseMethod("collect")
 
